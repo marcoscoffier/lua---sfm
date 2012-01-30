@@ -13,10 +13,12 @@ set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 add_subdirectory (sba-1.6)
 # add_subdirectory (sba-1.g/demo)
 
-include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/sba-1.6)
+include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/sba-1.6 ${PROJECT_SOURCE_DIR}/sba-1.6/demo)
 add_library (sfm SHARED init.c)
 link_directories (${TORCH_LIBRARY_DIR})
 set (CMAKE_CXX_FLAGS "-fpic")
-target_link_libraries (sfm ${TORCH_LIBRARIES} sba-1.6)
+target_link_libraries (sfm ${TORCH_LIBRARIES} sba)
 
 install_files(/lua/sfm init.lua)
+install_targets(/lib sfm)
+
