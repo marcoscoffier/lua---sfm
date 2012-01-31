@@ -22,9 +22,9 @@ ENDIF(HAVE_F2C)
 
 ########################## NO CHANGES BEYOND THIS POINT ##########################
 
-INCLUDE_DIRECTORIES(.)
+INCLUDE_DIRECTORIES(${SBA_SOURCE_DIR})
 # sba library source files
-ADD_LIBRARY(sba STATIC
+ADD_LIBRARY(sba SHARED
   sba_levmar.c sba_levmar_wrap.c sba_lapack.c sba_crsm.c sba_chkjac.c
   sba.h sba_chkjac.h compiler.h
 )

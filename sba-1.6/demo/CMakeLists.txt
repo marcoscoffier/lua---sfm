@@ -1,7 +1,7 @@
 # CMake file for sba's demo program
 
-INCLUDE_DIRECTORIES(..)
-LINK_DIRECTORIES(.. ${LAPACKBLAS_DIR})
+INCLUDE_DIRECTORIES(${SBA_SOURCE_DIR})
+LINK_DIRECTORIES(${SBA_SOURCE_DIR} ${LAPACKBLAS_DIR})
 
 ADD_EXECUTABLE(eucsbademo eucsbademo.c imgproj.c readparams.c eucsbademo.h readparams.h)
 # libraries the demo depends on
