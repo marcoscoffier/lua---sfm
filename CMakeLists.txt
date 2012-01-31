@@ -17,7 +17,7 @@ set(SBA_DEMO_DIR ${SBA_SOURCE_DIR}/demo)
 include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR} 
   ${SBA_SOURCE_DIR} ${SBA_DEMO_DIR})
 
-add_library (sfm SHARED init.c)
+add_library (sfm SHARED sba_driver.c)
 add_library(sbaexample SHARED ${SBA_DEMO_DIR}/eucsbademo.c 
   ${SBA_DEMO_DIR}/imgproj.c 
   ${SBA_DEMO_DIR}/readparams.c 
