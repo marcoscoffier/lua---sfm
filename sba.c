@@ -1,10 +1,10 @@
 /* Adapting the sba-1.6 demo to our use.  There are many static and
  * static inline functions, for speed I suppose, which I am coping
  * into this file.  I modified the CMakeLists to create an lib for the
- * rest of the functions in sba-1.6/demo.  The main function is
- * sba_driver_torch() (line 1456) which is a modified version which
- * accepts torch tensors rather than filenames in the original demo
- * code.
+ * rest of the functions in sba-1.6/demo.  The main function in this
+ * file is sba_driver_torch() (line 1456) which is a modified version
+ * which accepts torch tensors rather than filenames in the original
+ * demo code.
  *
  * Marco Scoffier Jan. 30, 2011
  *
@@ -1868,7 +1868,7 @@ static const void* torch_DoubleTensor_id = NULL;
 #include "generic/sba.c"
 #include "THGenerateFloatTypes.h"
 
-DLL_EXPORT int luaopen_libsba(lua_State *L)
+DLL_EXPORT int luaopen_libsfm(lua_State *L)
 {
   torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
   torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
@@ -1876,8 +1876,8 @@ DLL_EXPORT int luaopen_libsba(lua_State *L)
   libsba_FloatMain_init(L);
   libsba_DoubleMain_init(L);
 
-  luaL_register(L, "libsba.double", libsba_DoubleMain__);
-  luaL_register(L, "libsba.float", libsba_FloatMain__);
+  luaL_register(L, "libsfm.double", libsba_DoubleMain__);
+  luaL_register(L, "libsfm.float", libsba_FloatMain__);
 
   return 1;
 }

@@ -17,7 +17,7 @@ static const luaL_reg libsba_(Main__) [] =
 
 DLL_EXPORT int libsba_(Main_init) (lua_State *L) {
   luaT_pushmetaclass(L, torch_(Tensor_id));
-  luaT_registeratname(L, libsba_(Main__), "libsba");
+  luaT_registeratname(L, libsba_(Main__), "libsfm");
   return 1; 
 }
 
