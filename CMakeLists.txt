@@ -17,7 +17,8 @@ set(SBA_DEMO_DIR ${SBA_SOURCE_DIR}/demo)
 include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR} 
   ${SBA_SOURCE_DIR} ${SBA_DEMO_DIR})
 
-add_library (sfm SHARED sba_driver.c)
+# call the library sfm b/c sba target is used in sba-1.6
+add_library (sfm SHARED sba.c)
 add_library(sbaexample SHARED ${SBA_DEMO_DIR}/eucsbademo.c 
   ${SBA_DEMO_DIR}/imgproj.c 
   ${SBA_DEMO_DIR}/readparams.c 
@@ -26,7 +27,7 @@ add_library(sbaexample SHARED ${SBA_DEMO_DIR}/eucsbademo.c
 
 link_directories (${TORCH_LIBRARY_DIR})
 set (CMAKE_C_FLAGS "-fPIC")
-target_link_libraries (sfm ${TORCH_LIBRARIES} sbaexample sba)
+target_link_libraries (sfm ${TORCH_LIBRARIES} sbaexample sfm)
 
 install_files(/lua/sfm init.lua)
 install_targets(/lib sfm)

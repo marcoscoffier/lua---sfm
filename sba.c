@@ -1460,7 +1460,7 @@ static void img_projsKDS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, i
 
 
 /* Driver for sba_xxx_levmar */
-void sba_driver_torch(double *cams_ptr, double *pts_ptr, double *calib_ptr,
+void sba_driver_c(double *cams_ptr, double *pts_ptr, double *calib_ptr,
                 int cnp, int pnp, int mnp,
                 void (*caminfilter)(double *pin, int nin, double *pout, int nout),
                 void (*camoutfilter)(double *pin, int nin, double *pout, int nout),
@@ -1854,3 +1854,30 @@ register int i;
     outp[i]=inp[i-1];
 }
 
+#include <TH.h>
+#include <luaT.h>
+
+#define torch_(NAME) TH_CONCAT_3(torch_, Real, NAME)
+#define torch_string_(NAME) TH_CONCAT_STRING_3(torch., Real, NAME)
+#define libsba_(NAME) TH_CONCAT_3(libsba_, Real, NAME)
+
+static const void* torch_FloatTensor_id = NULL;
+static const void* torch_DoubleTensor_id = NULL;
+
+
+#include "generic/sba.c"
+#include "THGenerateFloatTypes.h"
+
+DLL_EXPORT int luaopen_libsba(lua_State *L)
+{
+  torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
+  torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
+
+  libsba_FloatMain_init(L);
+  libsba_DoubleMain_init(L);
+
+  luaL_register(L, "libsba.double", libsba_DoubleMain__);
+  luaL_register(L, "libsba.float", libsba_FloatMain__);
+
+  return 1;
+}
