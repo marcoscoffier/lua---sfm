@@ -1859,13 +1859,13 @@ register int i;
 
 #define torch_(NAME) TH_CONCAT_3(torch_, Real, NAME)
 #define torch_string_(NAME) TH_CONCAT_STRING_3(torch., Real, NAME)
-#define libsba_(NAME) TH_CONCAT_3(libsba_, Real, NAME)
+#define libsfm_(NAME) TH_CONCAT_3(libsfm_, Real, NAME)
 
 static const void* torch_FloatTensor_id = NULL;
 static const void* torch_DoubleTensor_id = NULL;
 
 
-#include "generic/sba.c"
+#include "generic/sfm.c"
 #include "THGenerateFloatTypes.h"
 
 DLL_EXPORT int luaopen_libsfm(lua_State *L)
@@ -1873,11 +1873,11 @@ DLL_EXPORT int luaopen_libsfm(lua_State *L)
   torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
   torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
 
-  libsba_FloatMain_init(L);
-  libsba_DoubleMain_init(L);
+  libsfm_FloatMain_init(L);
+  libsfm_DoubleMain_init(L);
 
-  luaL_register(L, "libsfm.double", libsba_DoubleMain__);
-  luaL_register(L, "libsfm.float", libsba_FloatMain__);
+  luaL_register(L, "libsfm.double", libsfm_DoubleMain__);
+  luaL_register(L, "libsfm.float", libsfm_FloatMain__);
 
   return 1;
 }
