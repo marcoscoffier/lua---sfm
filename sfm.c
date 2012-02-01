@@ -1520,7 +1520,24 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
    *                      &nframes, &numpts3D, &numprojs, &motstruct, &initrot, &imgpts, &covimgpts, &vmask);
    */
   printf("1\n");
-  printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, numpts3D, imgpts, numprojs, vmask);
+
+  printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, 10, imgpts, 10, vmask);
+  int j,c=0;
+  /* printf("Vmask:\n"); */
+  /* for(i=0;i<10;i++){ */
+  /*   printf("[%d] %c",i,vmask[c]); */
+  /*   c++; */
+  /*   for(j=1;j<nframes;i++){ */
+  /*     printf(", %c",vmask[c]); */
+  /*     c++; */
+  /*   } */
+  /*   printf("\n"); */
+  /* } */
+  printf("imgpts\n");
+  c=0;
+  for(i=0;i<10;i++){
+    printf("[%d] %f %f\n",i,imgpts[c++],imgpts[c++]);
+  }
   printf("2\n");
 
   if(howto!=BA_STRUCT){

@@ -196,10 +196,11 @@ double *tofilter;
     ++lineno;
     if(infilter){
       n=readNDoubles(fp, tofilter, filecnp);
-      (*infilter)(tofilter, filecnp, params, cnp);
+      (*infilter)(tofilter, filecnp, params, cnp); 
     }
-    else
+    else {
       n=readNDoubles(fp, params, cnp);
+    }
     if(n==EOF) break;
     if(n!=filecnp){
       fprintf(stderr, "readCameraParams(): line %d contains %d parameters, expected %d!\n", lineno, n, filecnp);
@@ -209,13 +210,11 @@ double *tofilter;
       fprintf(stderr, "findNcameras(): error reading input file, line %d\n", lineno);
       exit(1);
     }
-
     /* save rotation assuming the last 3 parameters correspond to translation */
     initrot[1]=params[cnp-6];
     initrot[2]=params[cnp-5];
     initrot[3]=params[cnp-4];
     initrot[0]=sqrt(1.0 - initrot[1]*initrot[1] - initrot[2]*initrot[2] - initrot[3]*initrot[3]);
-
     params+=cnp;
     initrot+=FULLQUATSZ;
   }

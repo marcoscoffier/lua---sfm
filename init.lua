@@ -42,6 +42,7 @@ end
 function sfm.sba_testme () 
    local camerafname = sys.concat(sys.fpath(), "7cams.txt")
    local pointsfname = sys.concat(sys.fpath(), "7pts.txt")
+   local calibfname = sys.concat(sys.fpath(), "calib.txt")
    print("opening "..camerafname)
    local nframes=tonumber(sys.execute("wc -l "..camerafname):match("%d+"))
    sfm.cnp = 6
@@ -50,13 +51,11 @@ function sfm.sba_testme ()
    local cnp = sfm.cnp
    local pnp = sfm.pnp
    local mnp = sfm.mnp
-
-   local camera = torch.Tensor(nframes*cnp)
+   local filecnp = 7
+   camera = torch.Tensor(nframes,filecnp)
    local camera_df = torch.DiskFile(camerafname)
-   for i = 1,camera:nElement() do 
-      camera[i] = camera_df:readDouble()
-   end
-   camera:resize(nframes,cnp)
+
+   camera:copy(torch.Tensor(camera_df:readDouble(nframes*(filecnp))))
    print(camera)
    camera_df:close()
 
@@ -78,25 +77,50 @@ function sfm.sba_testme ()
    print("n3Dpts: "..n3Dpts.." n2Dproj: "..n2Dprojs)
    local vmask     = torch.CharTensor(n3Dpts,nframes):fill(0)
    local imgpts    = torch.Tensor(n2Dprojs * mnp)
-   local motstruct = torch.Tensor(nframes*cnp + n3Dpts*pnp)
+   motstruct = torch.Tensor(nframes*cnp + n3Dpts*pnp)
    local motion = motstruct:narrow(1,1,nframes*cnp)
    motion:resize(nframes,cnp)
    local fullquatz = 4
-   local initrot   = torch.Tensor(nframes,fullquatz)
-   motion:copy(camera)
-   for i = 1,camera:size(1) do 
-      initrot[i][2] = camera[i][1+cnp-6]
-      initrot[i][3] = camera[i][1+cnp-5]
-      initrot[i][4] = camera[i][1+cnp-4]
-      initrot[i][1] = math.sqrt(1 
-                                - initrot[2]*initrot[2] 
-                                - initrot[3]*initrot[3]
-                                - initrot[4]*initrot[4])
+   local initrot   = torch.Tensor(nframes,fullquatz):fill(0)
+   -- go from quaternions in camera (7 params) to 3 rotation and 3
+   -- position (6 params) in motion (quat2vec)
+
+   -- it seems so f*cking broken to move back and forth between
+   -- quaterion mode and non-quaterion
+
+   for i = 1,nframes do
+      local mag = math.sqrt(camera[i][1] * camera[i][1] +
+                            camera[i][2] * camera[i][2] +
+                            camera[i][3] * camera[i][3] +
+                            camera[i][4] * camera[i][4])
+      local sg = 1
+      if camera[i][1] < 0 then sg = -1 end
+      mag = sg/mag
+      motion[i][1] = camera[i][2]*mag
+      motion[i][2] = camera[i][3]*mag
+      motion[i][3] = camera[i][4]*mag
+      -- translation
+      motion[i][4] = camera[i][5]
+      motion[i][5] = camera[i][6]
+      motion[i][6] = camera[i][7]
    end
-   -- now reread the points file
+   for i = 1,nframes do
+      -- in quaternion mode the rotation parameters start in 2nd column
+      initrot[i][2] = motion[i][1]
+      initrot[i][3] = motion[i][2]
+      initrot[i][4] = motion[i][3]
+      initrot[i][1] = math.sqrt(1 
+                                - initrot[i][2]*initrot[i][2] 
+                                - initrot[i][3]*initrot[i][3]
+                                - initrot[i][4]*initrot[i][4])
+      print(motion[i][1],motion[i][2],motion[i][3])
+      print(initrot[i][1],initrot[i][2],initrot[i][3],initrot[i][4])
+   end
+   print(initrot)   
+-- now reread the points file
    points_df:seek(1)
    points_df:readString("*l") -- skip header 
-   local structure = motstruct:narrow(1,nframes*cnp,n3Dpts*pnp)
+   local structure = motstruct:narrow(1,nframes*cnp+1,n3Dpts*pnp)
    structure:resize(n3Dpts,pnp)
    local imgprojs = torch.Tensor(n2Dprojs,mnp)
    local cproj = 1
@@ -110,8 +134,16 @@ function sfm.sba_testme ()
          imgprojs[cproj][1] = points_df:readDouble()
          imgprojs[cproj][2] = points_df:readDouble()
          vmask[i][fnum+1]=1
+         cproj = cproj+1
       end
    end
+   points_df:close()
+
+   local calibration=torch.Tensor(3,3)
+   local calib_df = torch.DiskFile(calibfname)
+   calibration:copy(torch.Tensor(calib_df:readDouble(9)))
+   calib_df:close()
+   print(calibration)
    print("about to call sfm.sba()")
    sfm.sba(motstruct,nframes,n3Dpts,vmask,initrot,imgprojs,calibration)
 end

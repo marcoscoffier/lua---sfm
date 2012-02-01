@@ -1498,7 +1498,24 @@ void sba_driver(char *camsfname, char *ptsfname, char *calibfname, int cnp, int 
   readInitialSBAEstimate(camsfname, ptsfname, cnp, pnp, mnp, caminfilter, filecnp, //NULL, 0, 
                          &nframes, &numpts3D, &numprojs, &motstruct, &initrot, &imgpts, &covimgpts, &vmask);
 
-  printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, numpts3D, imgpts, numprojs, vmask);
+  printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, 10, imgpts, 10, vmask);
+  int j,c=0;
+  /* printf("Vmask:\n"); */
+  /* for(i=0;i<10;i++){ */
+  /*   printf("[%d] %c",i,vmask[c]); */
+  /*   c++; */
+  /*   for(j=1;j<nframes;i++){ */
+  /*     printf(", %c",vmask[c]); */
+  /*     c++; */
+  /*   } */
+  /*   printf("\n"); */
+  /* } */
+  printf("imgpts\n");
+  c=0;
+  for(i=0;i<10;i++){
+    printf("[%d] %f %f\n",i,imgpts[c++],imgpts[c++]);
+  }
+
 
   if(howto!=BA_STRUCT){
     /* initialize the local rotation estimates to 0, corresponding to local quats (1, 0, 0, 0) */
@@ -1778,9 +1795,9 @@ register int i;
     i=0;
 
   /* rotation */
-  /* normalize and ensure that the quaternion's scalar component is non-negative;
-   * if not, negate the quaternion since two quaternions q and -q represent the
-   * same rotation
+  /* normalize and ensure that the quaternion's scalar component is
+   * non-negative; if not, negate the quaternion since two quaternions
+   * q and -q represent the same rotation
    */
   mag=sqrt(inp[i]*inp[i] + inp[i+1]*inp[i+1] + inp[i+2]*inp[i+2] + inp[i+3]*inp[i+3]);
   sg=(inp[i]>=0.0)? 1.0 : -1.0;
@@ -1795,9 +1812,9 @@ register int i;
     outp[i]=inp[i+1];
 }
 
-/* convert a vector of camera parameters so that rotation is represented by
- * a full unit quaternion instead of its input 3-vector part. Remaining
- * parameters are left unchanged.
+/* convert a vector of camera parameters so that rotation is
+ * represented by a full unit quaternion instead of its input 3-vector
+ * part. Remaining parameters are left unchanged.
  *
  * Input parameter layout: intrinsics (5, optional), distortion (5, optional), rot. quaternion vector part (3), translation (3)
  * Output parameter layout: intrinsics (5, optional), distortion (5, optional), rot. quaternion (4), translation (3)
