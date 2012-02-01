@@ -31,38 +31,44 @@
 
 /* pointers to additional data, used for computed image projections and their jacobians */
 struct globs_{
-	double *rot0params; /* initial rotation parameters, combined with a local rotation parameterization */
-	double *intrcalib; /* the 5 intrinsic calibration parameters in the order [fu, u0, v0, ar, skew],
-                      * where ar is the aspect ratio fv/fu.
-                      * Used only when calibration is fixed for all cameras;
-                      * otherwise, it is null and the intrinsic parameters are
-                      * included in the set of motion parameters for each camera
-                      */
-  int nccalib; /* number of calibration parameters that must be kept constant.
-                * 0: all parameters are free 
-                * 1: skew is fixed to its initial value, all other parameters vary (i.e. fu, u0, v0, ar) 
-                * 2: skew and aspect ratio are fixed to their initial values, all other parameters vary (i.e. fu, u0, v0)
-                * 3: meaningless
-                * 4: skew, aspect ratio and principal point are fixed to their initial values, only the focal length varies (i.e. fu)
-                * 5: all intrinsics are kept fixed to their initial values
-                * >5: meaningless
-                * Used only when calibration varies among cameras
-                */
-
-  int ncdist; /* number of distortion parameters in Bouguet's model that must be kept constant.
-               * 0: all parameters are free 
-               * 1: 6th order radial distortion term (kc[4]) is fixed
-               * 2: 6th order radial distortion and one of the tangential distortion terms (kc[3]) are fixed
-               * 3: 6th order radial distortion and both tangential distortion terms (kc[3], kc[2]) are fixed [i.e., only 2nd & 4th order radial dist.]
-               * 4: 4th & 6th order radial distortion terms and both tangential distortion ones are fixed [i.e., only 2nd order radial dist.]
-               * 5: all distortion parameters are kept fixed to their initial values
-               * >5: meaningless
-               * Used only when calibration varies among cameras and distortion is to be estimated
-               */
-  int cnp, pnp, mnp; /* dimensions */
-
-	double *ptparams; /* needed only when bundle adjusting for camera parameters only */
-	double *camparams; /* needed only when bundle adjusting for structure parameters only */
+  /* initial rotation parameters, combined with a local rotation
+     parameterization */
+  double *rot0params;
+  /* the 5 intrinsic calibration parameters in the order [fu, u0, v0,
+   * ar, skew], where ar is the aspect ratio fv/fu.  Used only when
+   * calibration is fixed for all cameras; otherwise, it is null and
+   * the intrinsic parameters are included in the set of motion
+   * parameters for each camera
+   */
+  double *intrcalib;
+  /* number of calibration parameters that must be kept constant.
+   * 0: all parameters are free 
+   * 1: skew is fixed to its initial value, all other parameters vary (i.e. fu, u0, v0, ar) 
+   * 2: skew and aspect ratio are fixed to their initial values, all other parameters vary (i.e. fu, u0, v0)
+   * 3: meaningless
+   * 4: skew, aspect ratio and principal point are fixed to their initial values, only the focal length varies (i.e. fu)
+   * 5: all intrinsics are kept fixed to their initial values
+   * >5: meaningless
+   * Used only when calibration varies among cameras
+   */ 
+  int nccalib;
+  /* number of distortion parameters in Bouguet's model that must be kept constant.
+   * 0: all parameters are free 
+   * 1: 6th order radial distortion term (kc[4]) is fixed
+   * 2: 6th order radial distortion and one of the tangential distortion terms (kc[3]) are fixed
+   * 3: 6th order radial distortion and both tangential distortion terms (kc[3], kc[2]) are fixed [i.e., only 2nd & 4th order radial dist.]
+   * 4: 4th & 6th order radial distortion terms and both tangential distortion ones are fixed [i.e., only 2nd order radial dist.]
+   * 5: all distortion parameters are kept fixed to their initial values
+   * >5: meaningless
+   * Used only when calibration varies among cameras and distortion is to be estimated
+   */
+  int ncdist;
+  /* dimensions */
+  int cnp, pnp, mnp; 
+  /* needed only when bundle adjusting for camera parameters only */
+  double *ptparams;
+  /* needed only when bundle adjusting for structure parameters only */
+  double *camparams; 
 } globs;
 
 /* unit quaternion from vector part */
@@ -124,28 +130,32 @@ double t1, t2, t3, t4, t5, t6, t7, t8, t9;
 }
 
 
-/* Routines to estimate the estimated measurement vector (i.e. "func") and
- * its sparse jacobian (i.e. "fjac") needed in BA. Code below makes use of the
- * routines calcImgProj() and calcImgProjJacXXX() which
- * compute the predicted projection & jacobian of a SINGLE 3D point (see imgproj.c).
- * In the terminology of TR-340, these routines compute Q and its jacobians A=dQ/da, B=dQ/db.
- * Notice also that what follows is two pairs of "func" and corresponding "fjac" routines.
- * The first is to be used in full (i.e. motion + structure) BA, the second in 
- * motion only BA.
+/* Routines to estimate the estimated measurement vector (i.e. "func")
+ * and its sparse jacobian (i.e. "fjac") needed in BA. Code below
+ * makes use of the routines calcImgProj() and calcImgProjJacXXX()
+ * which compute the predicted projection & jacobian of a SINGLE 3D
+ * point (see imgproj.c).  In the terminology of TR-340, these
+ * routines compute Q and its jacobians A=dQ/da, B=dQ/db.  Notice also
+ * that what follows is two pairs of "func" and corresponding "fjac"
+ * routines.  The first is to be used in full (i.e. motion +
+ * structure) BA, the second in motion only BA.
  */
 
 static const double zerorotquat[FULLQUATSZ]={1.0, 0.0, 0.0, 0.0};
 
-/****************************************************************************************/
-/* MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR VARYING CAMERA POSE AND 3D STRUCTURE */
-/****************************************************************************************/
+/************************************************************************/
+/* MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR VARYING CAMERA POSE
+   AND 3D STRUCTURE */
+/************************************************************************/
 
-/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE SIMPLE DRIVERS ***/
+/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE SIMPLE
+     DRIVERS ***/
 
-/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND STRUCTURE PARAMETERS */
+/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND
+   STRUCTURE PARAMETERS */
 
-/* Given the parameter vectors aj and bi of camera j and point i, computes in xij the
- * predicted projection of point i on image j
+/* Given the parameter vectors aj and bi of camera j and point i,
+ * computes in xij the predicted projection of point i on image j
  */
 static void img_projRTS(int j, int i, double *aj, double *bi, double *xij, void *adata)
 {
@@ -154,13 +164,17 @@ static void img_projRTS(int j, int i, double *aj, double *bi, double *xij, void 
 
   gl=(struct globs_ *)adata;
   Kparms=gl->intrcalib;
-  pr0=gl->rot0params+j*FULLQUATSZ; // full quat for initial rotation estimate
+  pr0=gl->rot0params+j*FULLQUATSZ; /* full quat for initial rotation
+                                      estimate */
 
-  calcImgProj(Kparms, pr0, aj, aj+3, bi, xij); // 3 is the quaternion's vector part length
+  calcImgProj(Kparms, pr0, aj, aj+3, bi, xij); /* 3 is the
+                                                  quaternion's vector
+                                                  part length */
 }
 
-/* Given the parameter vectors aj and bi of camera j and point i, computes in Aij, Bij the
- * jacobian of the predicted projection of point i on image j
+/* Given the parameter vectors aj and bi of camera j and point i,
+ * computes in Aij, Bij the jacobian of the predicted projection of
+ * point i on image j
  */
 static void img_projRTS_jac(int j, int i, double *aj, double *bi, double *Aij, double *Bij, void *adata)
 {
@@ -232,7 +246,9 @@ static void img_projS(int j, int i, double *bi, double *xij, void *adata)
   camparams=gl->camparams;
   aj=camparams+j*cnp;
 
-  calcImgProjFullR(Kparms, aj, aj+3, bi, xij); // 3 is the quaternion's vector part length
+  calcImgProjFullR(Kparms, aj, aj+3, bi, xij); /* 3 is the
+                                                  quaternion's vector
+                                                  part length */
   //calcImgProj(Kparms, (double *)zerorotquat, aj, aj+3, bi, xij); // 3 is the quaternion's vector part length
 }
 
@@ -255,14 +271,18 @@ static void img_projS_jac(int j, int i, double *bi, double *Bij, void *adata)
   calcImgProjJacS(Kparms, (double *)zerorotquat, aj, aj+3, bi, (double (*)[3])Bij); // 3 is the quaternion's vector part length
 }
 
-/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE EXPERT DRIVERS ***/
+/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE EXPERT
+     DRIVERS ***/
 
-/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND STRUCTURE PARAMETERS */
+/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND
+   STRUCTURE PARAMETERS */
 
-/* Given a parameter vector p made up of the 3D coordinates of n points and the parameters of m cameras, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images. The measurements
- * are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is the predicted
- * projection of the i-th point on the j-th camera.
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points and the parameters of m cameras, compute in hx the
+ * prediction of the measurements, i.e. the projections of 3D points
+ * in the m images. The measurements are returned in the order
+ * (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is
+ * the predicted projection of the i-th point on the j-th camera.
  * Notice that depending on idxij, some of the hx_ij might be missing
  *
  */
@@ -303,11 +323,14 @@ static void img_projsRTS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *
   }
 }
 
-/* Given a parameter vector p made up of the 3D coordinates of n points and the parameters of m cameras, compute in
- * jac the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ..., A_nm, B_11, ..., B_1m, ..., B_n1, ..., B_nm),
- * where A_ij=dx_ij/db_j and B_ij=dx_ij/db_i (see HZ).
- * Notice that depending on idxij, some of the A_ij, B_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points and the parameters of m cameras, compute in jac the jacobian
+ * of the predicted measurements, i.e. the jacobian of the projections
+ * of 3D points in the m images.  The jacobian is returned in the
+ * order (A_11, ..., A_1m, ..., A_n1, ..., A_nm, B_11, ..., B_1m, ...,
+ * B_n1, ..., B_nm), where A_ij=dx_ij/db_j and B_ij=dx_ij/db_i (see
+ * HZ).  Notice that depending on idxij, some of the A_ij, B_ij might
+ * be missing
  *
  */
 static void img_projsRTS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -348,11 +371,13 @@ static void img_projsRTS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, i
 
 /* BUNDLE ADJUSTMENT FOR CAMERA PARAMETERS ONLY */
 
-/* Given a parameter vector p made up of the parameters of m cameras, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images.
- * The measurements are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T,
- * where hx_ij is the predicted projection of the i-th point on the j-th camera.
- * Notice that depending on idxij, some of the hx_ij might be missing
+/* Given a parameter vector p made up of the parameters of m cameras,
+ * compute in hx the prediction of the measurements, i.e. the
+ * projections of 3D points in the m images.  The measurements are
+ * returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T,
+ * .. hx_nm^T)^T, where hx_ij is the predicted projection of the i-th
+ * point on the j-th camera.  Notice that depending on idxij, some of
+ * the hx_ij might be missing
  *
  */
 static void img_projsRT_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *hx, void *adata)
@@ -392,11 +417,12 @@ static void img_projsRT_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *r
   }
 }
 
-/* Given a parameter vector p made up of the parameters of m cameras, compute in jac
- * the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ..., A_nm),
- * where A_ij=dx_ij/db_j (see HZ).
- * Notice that depending on idxij, some of the A_ij might be missing
+/* Given a parameter vector p made up of the parameters of m cameras,
+ * compute in jac the jacobian of the predicted measurements, i.e. the
+ * jacobian of the projections of 3D points in the m images.  The
+ * jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ...,
+ * A_nm), where A_ij=dx_ij/db_j (see HZ).  Notice that depending on
+ * idxij, some of the A_ij might be missing
  *
  */
 static void img_projsRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -436,11 +462,13 @@ static void img_projsRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, in
 
 /* BUNDLE ADJUSTMENT FOR STRUCTURE PARAMETERS ONLY */
 
-/* Given a parameter vector p made up of the 3D coordinates of n points, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images. The measurements
- * are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is the predicted
- * projection of the i-th point on the j-th camera.
- * Notice that depending on idxij, some of the hx_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points, compute in hx the prediction of the measurements, i.e. the
+ * projections of 3D points in the m images. The measurements are
+ * returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T,
+ * .. hx_nm^T)^T, where hx_ij is the predicted projection of the i-th
+ * point on the j-th camera.  Notice that depending on idxij, some of
+ * the hx_ij might be missing
  *
  */
 static void img_projsS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *hx, void *adata)
@@ -478,11 +506,12 @@ static void img_projsS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rc
   }
 }
 
-/* Given a parameter vector p made up of the 3D coordinates of n points, compute in
- * jac the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (B_11, ..., B_1m, ..., B_n1, ..., B_nm),
- * where B_ij=dx_ij/db_i (see HZ).
- * Notice that depending on idxij, some of the B_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points, compute in jac the jacobian of the predicted measurements,
+ * i.e. the jacobian of the projections of 3D points in the m images.
+ * The jacobian is returned in the order (B_11, ..., B_1m, ..., B_n1,
+ * ..., B_nm), where B_ij=dx_ij/db_i (see HZ).  Notice that depending
+ * on idxij, some of the B_ij might be missing
  *
  */
 static void img_projsS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -519,11 +548,13 @@ static void img_projsS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int
   }
 }
 
-/****************************************************************************************************/
-/* MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR VARYING CAMERA INTRINSICS, POSE AND 3D STRUCTURE */
-/****************************************************************************************************/
+/************************************************************************/
+/* MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR VARYING CAMERA
+   INTRINSICS, POSE AND 3D STRUCTURE */
+/************************************************************************/
 
-/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE SIMPLE DRIVERS ***/
+/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE SIMPLE
+     DRIVERS ***/
 
 /* A note about the computation of Jacobians below:
  *
@@ -533,14 +564,15 @@ static void img_projsS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int
  * implement this would be to code a separate version of the Jacobian
  * computation routines for each subset of non-fixed parameters. Here,
  * this is bypassed by developing only one set of Jacobian computation
- * routines which estimate the former for all 5 intrinsics and then set
- * the columns corresponding to fixed parameters to zero.
+ * routines which estimate the former for all 5 intrinsics and then
+ * set the columns corresponding to fixed parameters to zero.
  */
 
-/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND STRUCTURE PARAMETERS */
+/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND
+   STRUCTURE PARAMETERS */
 
-/* Given the parameter vectors aj and bi of camera j and point i, computes in xij the
- * predicted projection of point i on image j
+/* Given the parameter vectors aj and bi of camera j and point i,
+ * computes in xij the predicted projection of point i on image j
  */
 static void img_projKRTS(int j, int i, double *aj, double *bi, double *xij, void *adata)
 {
@@ -553,8 +585,9 @@ static void img_projKRTS(int j, int i, double *aj, double *bi, double *xij, void
   calcImgProj(aj, pr0, aj+5, aj+5+3, bi, xij); // 5 for the calibration + 3 for the quaternion's vector part
 }
 
-/* Given the parameter vectors aj and bi of camera j and point i, computes in Aij, Bij the
- * jacobian of the predicted projection of point i on image j
+/* Given the parameter vectors aj and bi of camera j and point i,
+ * computes in Aij, Bij the jacobian of the predicted projection of
+ * point i on image j
  */
 static void img_projKRTS_jac(int j, int i, double *aj, double *bi, double *Aij, double *Bij, void *adata)
 {
@@ -618,7 +651,8 @@ int pnp, ncK;
 
   calcImgProjJacKRT(aj, pr0, aj+5, aj+5+3, ptparams+i*pnp, (double (*)[5+6])Aij); // 5 for the calibration + 3 for the quaternion's vector part
 
-  /* clear the columns of the Jacobian corresponding to fixed calibration parameters */
+  /* clear the columns of the Jacobian corresponding to fixed
+     calibration parameters */
   ncK=gl->nccalib;
   if(ncK){
     int cnp, mnp, j0;
@@ -672,14 +706,18 @@ static void img_projKS_jac(int j, int i, double *bi, double *Bij, void *adata)
   calcImgProjJacS(aj, (double *)zerorotquat, aj+5, aj+5+3, bi, (double (*)[3])Bij); // 5 for the calibration + 3 for the quaternion's vector part
 }
 
-/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE EXPERT DRIVERS ***/
+/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE EXPERT
+     DRIVERS ***/
 
-/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND STRUCTURE PARAMETERS */
+/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND
+   STRUCTURE PARAMETERS */
 
-/* Given a parameter vector p made up of the 3D coordinates of n points and the parameters of m cameras, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images. The measurements
- * are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is the predicted
- * projection of the i-th point on the j-th camera.
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points and the parameters of m cameras, compute in hx the
+ * prediction of the measurements, i.e. the projections of 3D points
+ * in the m images. The measurements are returned in the order
+ * (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is
+ * the predicted projection of the i-th point on the j-th camera.
  * Notice that depending on idxij, some of the hx_ij might be missing
  *
  */
@@ -720,11 +758,14 @@ static void img_projsKRTS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int 
   }
 }
 
-/* Given a parameter vector p made up of the 3D coordinates of n points and the parameters of m cameras, compute in
- * jac the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ..., A_nm, B_11, ..., B_1m, ..., B_n1, ..., B_nm),
- * where A_ij=dx_ij/db_j and B_ij=dx_ij/db_i (see HZ).
- * Notice that depending on idxij, some of the A_ij, B_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points and the parameters of m cameras, compute in jac the jacobian
+ * of the predicted measurements, i.e. the jacobian of the projections
+ * of 3D points in the m images.  The jacobian is returned in the
+ * order (A_11, ..., A_1m, ..., A_n1, ..., A_nm, B_11, ..., B_1m, ...,
+ * B_n1, ..., B_nm), where A_ij=dx_ij/db_j and B_ij=dx_ij/db_i (see
+ * HZ).  Notice that depending on idxij, some of the A_ij, B_ij might
+ * be missing
  *
  */
 static void img_projsKRTS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -775,11 +816,13 @@ static void img_projsKRTS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, 
 
 /* BUNDLE ADJUSTMENT FOR CAMERA PARAMETERS ONLY */
 
-/* Given a parameter vector p made up of the parameters of m cameras, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images.
- * The measurements are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T,
- * where hx_ij is the predicted projection of the i-th point on the j-th camera.
- * Notice that depending on idxij, some of the hx_ij might be missing
+/* Given a parameter vector p made up of the parameters of m cameras,
+ * compute in hx the prediction of the measurements, i.e. the
+ * projections of 3D points in the m images.  The measurements are
+ * returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T,
+ * .. hx_nm^T)^T, where hx_ij is the predicted projection of the i-th
+ * point on the j-th camera.  Notice that depending on idxij, some of
+ * the hx_ij might be missing
  *
  */
 static void img_projsKRT_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *hx, void *adata)
@@ -819,11 +862,12 @@ static void img_projsKRT_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *
   }
 }
 
-/* Given a parameter vector p made up of the parameters of m cameras, compute in jac
- * the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ..., A_nm),
- * where A_ij=dx_ij/db_j (see HZ).
- * Notice that depending on idxij, some of the A_ij might be missing
+/* Given a parameter vector p made up of the parameters of m cameras,
+ * compute in jac the jacobian of the predicted measurements, i.e. the
+ * jacobian of the projections of 3D points in the m images.  The
+ * jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ...,
+ * A_nm), where A_ij=dx_ij/db_j (see HZ).  Notice that depending on
+ * idxij, some of the A_ij might be missing
  *
  */
 static void img_projsKRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -859,7 +903,8 @@ static void img_projsKRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, i
 
       calcImgProjJacKRT(pcalib, pr0, pqr, pt, ppt, (double (*)[5+6])pA); // evaluate dQ/da in pA
 
-      /* clear the columns of the Jacobian corresponding to fixed calibration parameters */
+      /* clear the columns of the Jacobian corresponding to fixed
+         calibration parameters */
       if(ncK){
         int jj0;
 
@@ -874,11 +919,13 @@ static void img_projsKRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, i
 
 /* BUNDLE ADJUSTMENT FOR STRUCTURE PARAMETERS ONLY */
 
-/* Given a parameter vector p made up of the 3D coordinates of n points, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images. The measurements
- * are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is the predicted
- * projection of the i-th point on the j-th camera.
- * Notice that depending on idxij, some of the hx_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points, compute in hx the prediction of the measurements, i.e. the
+ * projections of 3D points in the m images. The measurements are
+ * returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T,
+ * .. hx_nm^T)^T, where hx_ij is the predicted projection of the i-th
+ * point on the j-th camera.  Notice that depending on idxij, some of
+ * the hx_ij might be missing
  *
  */
 static void img_projsKS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *hx, void *adata)
@@ -916,11 +963,12 @@ static void img_projsKS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *r
   }
 }
 
-/* Given a parameter vector p made up of the 3D coordinates of n points, compute in
- * jac the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (B_11, ..., B_1m, ..., B_n1, ..., B_nm),
- * where B_ij=dx_ij/db_i (see HZ).
- * Notice that depending on idxij, some of the B_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points, compute in jac the jacobian of the predicted measurements,
+ * i.e. the jacobian of the projections of 3D points in the m images.
+ * The jacobian is returned in the order (B_11, ..., B_1m, ..., B_n1,
+ * ..., B_nm), where B_ij=dx_ij/db_i (see HZ).  Notice that depending
+ * on idxij, some of the B_ij might be missing
  *
  */
 static void img_projsKS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -957,28 +1005,34 @@ static void img_projsKS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, in
   }
 }
 
-/****************************************************************************************************************/
-/* MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR VARYING CAMERA INTRINSICS, DISTORTION, POSE AND 3D STRUCTURE */
-/****************************************************************************************************************/
+/************************************************************************/
+/* MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR VARYING CAMERA
+   INTRINSICS, DISTORTION, POSE AND 3D STRUCTURE */
+/************************************************************************/
 
-/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE SIMPLE DRIVERS ***/
+/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE SIMPLE
+     DRIVERS ***/
 
 /* A note about the computation of Jacobians below:
  *
- * When performing BA that includes the camera intrinsics & distortion, it would be
- * very desirable to allow for certain parameters such as skew, aspect ratio and principal
- * point (also high order radial distortion, tangential distortion), to be fixed. The
- * straighforward way to implement this would be to code a separate version of the
- * Jacobian computation routines for each subset of non-fixed parameters. Here,
- * this is bypassed by developing only one set of Jacobian computation
- * routines which estimate the former for all 5 intrinsics and all 5 distortion
- * coefficients and then set the columns corresponding to fixed parameters to zero.
+ * When performing BA that includes the camera intrinsics &
+ * distortion, it would be very desirable to allow for certain
+ * parameters such as skew, aspect ratio and principal point (also
+ * high order radial distortion, tangential distortion), to be
+ * fixed. The straighforward way to implement this would be to code a
+ * separate version of the Jacobian computation routines for each
+ * subset of non-fixed parameters. Here, this is bypassed by
+ * developing only one set of Jacobian computation routines which
+ * estimate the former for all 5 intrinsics and all 5 distortion
+ * coefficients and then set the columns corresponding to fixed
+ * parameters to zero.
  */
 
-/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND STRUCTURE PARAMETERS */
+/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND
+   STRUCTURE PARAMETERS */
 
-/* Given the parameter vectors aj and bi of camera j and point i, computes in xij the
- * predicted projection of point i on image j
+/* Given the parameter vectors aj and bi of camera j and point i,
+ * computes in xij the predicted projection of point i on image j
  */
 static void img_projKDRTS(int j, int i, double *aj, double *bi, double *xij, void *adata)
 {
@@ -991,8 +1045,9 @@ static void img_projKDRTS(int j, int i, double *aj, double *bi, double *xij, voi
   calcDistImgProj(aj, aj+5, pr0, aj+5+5, aj+5+5+3, bi, xij); // 5 for the calibration + 5 for the distortion + 3 for the quaternion's vector part
 }
 
-/* Given the parameter vectors aj and bi of camera j and point i, computes in Aij, Bij the
- * jacobian of the predicted projection of point i on image j
+/* Given the parameter vectors aj and bi of camera j and point i,
+ * computes in Aij, Bij the jacobian of the predicted projection of
+ * point i on image j
  */
 static void img_projKDRTS_jac(int j, int i, double *aj, double *bi, double *Aij, double *Bij, void *adata)
 {
@@ -1020,7 +1075,8 @@ int nc;
         pA[j]=0.0; // pA[i*cnp+j]=0.0;
   }
 
-  /* clear the columns of the Jacobian corresponding to fixed distortion parameters */
+  /* clear the columns of the Jacobian corresponding to fixed
+     distortion parameters */
   nc=gl->ncdist;
   if(nc){
     int cnp, mnp, j0;
@@ -1056,8 +1112,8 @@ static void img_projKDRT(int j, int i, double *aj, double *xij, void *adata)
   calcDistImgProj(aj, aj+5, pr0, aj+5+5, aj+5+5+3, ptparams+i*pnp, xij); // 5 for the calibration + 5 for the distortion + 3 for the quaternion's vector part
 }
 
-/* Given the parameter vector aj of camera j, computes in Aij
- * the jacobian of the predicted projection of point i on image j
+/* Given the parameter vector aj of camera j, computes in Aij the
+ * jacobian of the predicted projection of point i on image j
  */
 static void img_projKDRT_jac(int j, int i, double *aj, double *Aij, void *adata)
 {
@@ -1141,14 +1197,18 @@ static void img_projKDS_jac(int j, int i, double *bi, double *Bij, void *adata)
 }
 
 
-/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE EXPERT DRIVERS ***/
+/*** MEASUREMENT VECTOR AND JACOBIAN COMPUTATION FOR THE EXPERT
+     DRIVERS ***/
 
-/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND STRUCTURE PARAMETERS */
+/* FULL BUNDLE ADJUSTMENT, I.E. SIMULTANEOUS ESTIMATION OF CAMERA AND
+   STRUCTURE PARAMETERS */
 
-/* Given a parameter vector p made up of the 3D coordinates of n points and the parameters of m cameras, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images. The measurements
- * are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is the predicted
- * projection of the i-th point on the j-th camera.
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points and the parameters of m cameras, compute in hx the
+ * prediction of the measurements, i.e. the projections of 3D points
+ * in the m images. The measurements are returned in the order
+ * (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is
+ * the predicted projection of the i-th point on the j-th camera.
  * Notice that depending on idxij, some of the hx_ij might be missing
  *
  */
@@ -1190,11 +1250,14 @@ static void img_projsKDRTS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int
   }
 }
 
-/* Given a parameter vector p made up of the 3D coordinates of n points and the parameters of m cameras, compute in
- * jac the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ..., A_nm, B_11, ..., B_1m, ..., B_n1, ..., B_nm),
- * where A_ij=dx_ij/db_j and B_ij=dx_ij/db_i (see HZ).
- * Notice that depending on idxij, some of the A_ij, B_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points and the parameters of m cameras, compute in jac the jacobian
+ * of the predicted measurements, i.e. the jacobian of the projections
+ * of 3D points in the m images.  The jacobian is returned in the
+ * order (A_11, ..., A_1m, ..., A_n1, ..., A_nm, B_11, ..., B_1m, ...,
+ * B_n1, ..., B_nm), where A_ij=dx_ij/db_j and B_ij=dx_ij/db_i (see
+ * HZ).  Notice that depending on idxij, some of the A_ij, B_ij might
+ * be missing
  *
  */
 static void img_projsKDRTS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -1258,11 +1321,13 @@ static void img_projsKDRTS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs,
 
 /* BUNDLE ADJUSTMENT FOR CAMERA PARAMETERS ONLY */
 
-/* Given a parameter vector p made up of the parameters of m cameras, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images.
- * The measurements are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T,
- * where hx_ij is the predicted projection of the i-th point on the j-th camera.
- * Notice that depending on idxij, some of the hx_ij might be missing
+/* Given a parameter vector p made up of the parameters of m cameras,
+ * compute in hx the prediction of the measurements, i.e. the
+ * projections of 3D points in the m images.  The measurements are
+ * returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T,
+ * .. hx_nm^T)^T, where hx_ij is the predicted projection of the i-th
+ * point on the j-th camera.  Notice that depending on idxij, some of
+ * the hx_ij might be missing
  *
  */
 static void img_projsKDRT_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *hx, void *adata)
@@ -1303,11 +1368,12 @@ static void img_projsKDRT_x(double *p, struct sba_crsm *idxij, int *rcidxs, int 
   }
 }
 
-/* Given a parameter vector p made up of the parameters of m cameras, compute in jac
- * the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ..., A_nm),
- * where A_ij=dx_ij/db_j (see HZ).
- * Notice that depending on idxij, some of the A_ij might be missing
+/* Given a parameter vector p made up of the parameters of m cameras,
+ * compute in jac the jacobian of the predicted measurements, i.e. the
+ * jacobian of the projections of 3D points in the m images.  The
+ * jacobian is returned in the order (A_11, ..., A_1m, ..., A_n1, ...,
+ * A_nm), where A_ij=dx_ij/db_j (see HZ).  Notice that depending on
+ * idxij, some of the A_ij might be missing
  *
  */
 static void img_projsKDRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -1345,7 +1411,8 @@ static void img_projsKDRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, 
 
       calcDistImgProjJacKDRT(pcalib, pdist, pr0, pqr, pt, ppt, (double (*)[5+5+6])pA); // evaluate dQ/da in pA
 
-      /* clear the columns of the Jacobian corresponding to fixed calibration parameters */
+      /* clear the columns of the Jacobian corresponding to fixed
+         calibration parameters */
       if(ncK){
         int jj0;
 
@@ -1356,7 +1423,8 @@ static void img_projsKDRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, 
             ptr[jj]=0.0; // ptr[ii*cnp+jj]=0.0;
       }
 
-      /* clear the columns of the Jacobian corresponding to fixed distortion parameters */
+      /* clear the columns of the Jacobian corresponding to fixed
+         distortion parameters */
       if(ncD){
         int jj0;
 
@@ -1372,11 +1440,13 @@ static void img_projsKDRT_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, 
 
 /* BUNDLE ADJUSTMENT FOR STRUCTURE PARAMETERS ONLY */
 
-/* Given a parameter vector p made up of the 3D coordinates of n points, compute in
- * hx the prediction of the measurements, i.e. the projections of 3D points in the m images. The measurements
- * are returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T, .. hx_nm^T)^T, where hx_ij is the predicted
- * projection of the i-th point on the j-th camera.
- * Notice that depending on idxij, some of the hx_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points, compute in hx the prediction of the measurements, i.e. the
+ * projections of 3D points in the m images. The measurements are
+ * returned in the order (hx_11^T, .. hx_1m^T, ..., hx_n1^T,
+ * .. hx_nm^T)^T, where hx_ij is the predicted projection of the i-th
+ * point on the j-th camera.  Notice that depending on idxij, some of
+ * the hx_ij might be missing
  *
  */
 static void img_projsKDS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *hx, void *adata)
@@ -1415,11 +1485,12 @@ static void img_projsKDS_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *
   }
 }
 
-/* Given a parameter vector p made up of the 3D coordinates of n points, compute in
- * jac the jacobian of the predicted measurements, i.e. the jacobian of the projections of 3D points in the m images.
- * The jacobian is returned in the order (B_11, ..., B_1m, ..., B_n1, ..., B_nm),
- * where B_ij=dx_ij/db_i (see HZ).
- * Notice that depending on idxij, some of the B_ij might be missing
+/* Given a parameter vector p made up of the 3D coordinates of n
+ * points, compute in jac the jacobian of the predicted measurements,
+ * i.e. the jacobian of the projections of 3D points in the m images.
+ * The jacobian is returned in the order (B_11, ..., B_1m, ..., B_n1,
+ * ..., B_nm), where B_ij=dx_ij/db_i (see HZ).  Notice that depending
+ * on idxij, some of the B_ij might be missing
  *
  */
 static void img_projsKDS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata)
@@ -1471,7 +1542,6 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
                   double *refcams_ptr, double *refpts_ptr
                 )
 {
-  printf("0\n");
   double *motstruct_copy, *covimgpts;
   double ical[5]; // intrinsic calibration matrix & temp. storage for its params
   char tbuf[32];
@@ -1513,32 +1583,10 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
   //prnt=BA_STRUCT;
 
 
-  /* NOTE: readInitialSBAEstimate() sets covimgpts to NULL if no covariances are supplied */
-  /* FIXME: initialize */
+  /* set covimgpts to NULL if no covariances are supplied */
   covimgpts = NULL;
-  /* readInitialSBAEstimate(camsfname, ptsfname, cnp, pnp, mnp, caminfilter, filecnp, //NULL, 0,
-   *                      &nframes, &numpts3D, &numprojs, &motstruct, &initrot, &imgpts, &covimgpts, &vmask);
-   */
-  printf("1\n");
 
-  printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, 10, imgpts, 10, vmask);
-  int j,c=0;
-  /* printf("Vmask:\n"); */
-  /* for(i=0;i<10;i++){ */
-  /*   printf("[%d] %c",i,vmask[c]); */
-  /*   c++; */
-  /*   for(j=1;j<nframes;i++){ */
-  /*     printf(", %c",vmask[c]); */
-  /*     c++; */
-  /*   } */
-  /*   printf("\n"); */
-  /* } */
-  printf("imgpts\n");
-  c=0;
-  for(i=0;i<10;i++){
-    printf("[%d] %f %f\n",i,imgpts[c++],imgpts[c++]);
-  }
-  printf("2\n");
+  //printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, 10, imgpts, 10, vmask);
 
   if(howto!=BA_STRUCT){
     /* initialize the local rotation estimates to 0, corresponding to local quats (1, 0, 0, 0) */
@@ -1555,7 +1603,6 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
   globs.cnp=cnp; globs.pnp=pnp; globs.mnp=mnp;
   globs.rot0params=initrot;
   if(calib_ptr){ // read intrinsics only if fixed for all cameras
-    //readCalibParams(calibfname, K);
     ical[0]=calib_ptr[0]; // fu
     ical[1]=calib_ptr[2]; // u0
     ical[2]=calib_ptr[5]; // v0
@@ -1701,13 +1748,15 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
       q0=initrot+i*FULLQUATSZ;
       quatMultFast(qs, q0, prd); // prd=qs*q0
 
-      /* copy back vector part making sure that the scalar part is non-negative */
+      /* copy back vector part making sure that the scalar part is
+         non-negative */
       if(prd[0]>=0.0){
         v[0]=prd[1];
         v[1]=prd[2];
         v[2]=prd[3];
       }
-      else{ // negate since two quaternions q and -q represent the same rotation
+      else{ /* negate since two quaternions q and -q represent the
+               same rotation */
         v[0]=-prd[1];
         v[1]=-prd[2];
         v[2]=-prd[3];
@@ -1715,7 +1764,7 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
     }
   }
 
-        fflush(stdout);
+  fflush(stdout);
   fprintf(stdout, "SBA using %d 3D pts, %d frames and %d image projections, %d variables\n", numpts3D, nframes, numprojs, nvars);
   if(havedist) sprintf(tbuf, " (%d fixed)", globs.ncdist);
   fprintf(stdout, "\nMethod %s, %s driver, %s Jacobian, %s covariances, %s distortion%s, %s intrinsics", howtoname[howto],
@@ -1730,81 +1779,26 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
   fprintf(stdout, "SBA returned %d in %g iter, reason %g, error %g [initial %g], %d/%d func/fjac evals, %d lin. systems\n", n,
                     info[5], info[6], info[1]/numprojs, info[0]/numprojs, (int)info[7], (int)info[8], (int)info[9]);
   fprintf(stdout, "Elapsed time: %.2lf seconds, %.2lf msecs\n", ((double) (end_time - start_time)) / CLOCKS_PER_SEC,
-                  ((double) (end_time - start_time)) / CLOCKS_PER_MSEC);
+          ((double) (end_time - start_time)) / CLOCKS_PER_MSEC);
   fflush(stdout);
-
-  /* FIXME figure out if we need this */
-  /* refined motion and structure are now in motstruct */
-  /* switch(prnt){ */
-  /*   case BA_NONE: */
-  /*   break; */
-
-  /*   case BA_MOTSTRUCT: */
-  /*     if(!refcamsfname || refcamsfname[0]=='-') fp=stdout; */
-  /*     else if((fp=fopen(refcamsfname, "w"))==NULL){ */
-  /*       fprintf(stderr, "error opening file %s for writing in sba_driver()!\n", refcamsfname); */
-  /*       exit(1); */
-  /*     } */
-  /*     printSBAMotionData(fp, motstruct, nframes, cnp, camoutfilter, filecnp); */
-  /*     if(fp!=stdout) fclose(fp); */
-
-  /*     if(!refptsfname || refptsfname[0]=='-') fp=stdout; */
-  /*     else if((fp=fopen(refptsfname, "w"))==NULL){ */
-  /*       fprintf(stderr, "error opening file %s for writing in sba_driver()!\n", refptsfname); */
-  /*       exit(1); */
-  /*     } */
-  /*     printSBAStructureData(fp, motstruct, nframes, numpts3D, cnp, pnp); */
-  /*     if(fp!=stdout) fclose(fp); */
-  /*   break; */
-
-  /*   case BA_MOT: */
-  /*     if(!refcamsfname || refcamsfname[0]=='-') fp=stdout; */
-  /*     else if((fp=fopen(refcamsfname, "w"))==NULL){ */
-  /*       fprintf(stderr, "error opening file %s for writing in sba_driver()!\n", refcamsfname); */
-  /*       exit(1); */
-  /*     } */
-  /*     printSBAMotionData(fp, motstruct, nframes, cnp, camoutfilter, filecnp); */
-  /*     if(fp!=stdout) fclose(fp); */
-  /*   break; */
-
-  /*   case BA_STRUCT: */
-  /*     if(!refptsfname || refptsfname[0]=='-') fp=stdout; */
-  /*     else if((fp=fopen(refptsfname, "w"))==NULL){ */
-  /*       fprintf(stderr, "error opening file %s for writing in sba_driver()!\n", refptsfname); */
-  /*       exit(1); */
-  /*     } */
-  /*     printSBAStructureData(fp, motstruct, nframes, numpts3D, cnp, pnp); */
-  /*     if(fp!=stdout) fclose(fp); */
-  /*   break; */
-
-  /*   default: */
-  /*     fprintf(stderr, "unknown print option \"%d\" in sba_driver()!\n", prnt); */
-  /*     exit(1); */
-  /* } */
-
-  /* //printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, numpts3D, imgpts, numprojs, vmask); */
-
+  
 
 cleanup:
   /* just in case... */
   globs.intrcalib=NULL;
   globs.nccalib=0;
   globs.ncdist=0;
-
-/*   free(motstruct); */
-/*   free(imgpts); */
-/*   free(initrot); globs.rot0params=NULL; */
-/*   if(covimgpts) free(covimgpts); */
-/*   free(vmask); */
 }
 
-/* convert a vector of camera parameters so that rotation is represented by
- * the vector part of the input quaternion. The function converts the
- * input quaternion into a unit one with a non-negative scalar part. Remaining
- * parameters are left unchanged.
+/* convert a vector of camera parameters so that rotation is
+ * represented by the vector part of the input quaternion. The
+ * function converts the input quaternion into a unit one with a
+ * non-negative scalar part. Remaining parameters are left unchanged.
  *
- * Input parameter layout: intrinsics (5, optional), distortion (5, optional), rot. quaternion (4), translation (3)
- * Output parameter layout: intrinsics (5, optional), distortion (5, optional), rot. quaternion vector part (3), translation (3)
+ * Input parameter layout: intrinsics (5, optional), distortion (5,
+ * optional), rot. quaternion (4), translation (3) Output parameter
+ * layout: intrinsics (5, optional), distortion (5, optional),
+ * rot. quaternion vector part (3), translation (3)
  */
 void quat2vec(double *inp, int nin, double *outp, int nout)
 {
@@ -1819,9 +1813,9 @@ register int i;
     i=0;
 
   /* rotation */
-  /* normalize and ensure that the quaternion's scalar component is non-negative;
-   * if not, negate the quaternion since two quaternions q and -q represent the
-   * same rotation
+  /* normalize and ensure that the quaternion's scalar component is
+   * non-negative; if not, negate the quaternion since two quaternions
+   * q and -q represent the same rotation
    */
   mag=sqrt(inp[i]*inp[i] + inp[i+1]*inp[i+1] + inp[i+2]*inp[i+2] + inp[i+3]*inp[i+3]);
   sg=(inp[i]>=0.0)? 1.0 : -1.0;
@@ -1836,12 +1830,14 @@ register int i;
     outp[i]=inp[i+1];
 }
 
-/* convert a vector of camera parameters so that rotation is represented by
- * a full unit quaternion instead of its input 3-vector part. Remaining
- * parameters are left unchanged.
+/* convert a vector of camera parameters so that rotation is
+ * represented by a full unit quaternion instead of its input 3-vector
+ * part. Remaining parameters are left unchanged.
  *
- * Input parameter layout: intrinsics (5, optional), distortion (5, optional), rot. quaternion vector part (3), translation (3)
- * Output parameter layout: intrinsics (5, optional), distortion (5, optional), rot. quaternion (4), translation (3)
+ * Input parameter layout: intrinsics (5, optional), distortion (5,
+ * optional), rot. quaternion vector part (3), translation (3) Output
+ * parameter layout: intrinsics (5, optional), distortion (5,
+ * optional), rot. quaternion (4), translation (3)
  */
 void vec2quat(double *inp, int nin, double *outp, int nout)
 {

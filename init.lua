@@ -34,7 +34,6 @@ function sfm.sba (...)
       {arg='calibration', type='torch.Tensor', 
        help='matrix of intrinsic camera parameters'}
    )
-   print("in sfm.sba()")
    motstruct.libsfm.sba_driver(motstruct,nframes,n3Dpts,vmask,
                                initrot,imgproj, calibration)
 end
@@ -52,11 +51,10 @@ function sfm.sba_testme ()
    local pnp = sfm.pnp
    local mnp = sfm.mnp
    local filecnp = 7
-   camera = torch.Tensor(nframes,filecnp)
+   local camera = torch.Tensor(nframes,filecnp)
    local camera_df = torch.DiskFile(camerafname)
 
    camera:copy(torch.Tensor(camera_df:readDouble(nframes*(filecnp))))
-   print(camera)
    camera_df:close()
 
    print("opening "..pointsfname)
@@ -65,7 +63,6 @@ function sfm.sba_testme ()
    local n2Dprojs = 0
    local points_df = torch.DiskFile(pointsfname)
    local header = points_df:readString("*l")
-   print(header)
    for i = 1,n3Dpts do
       points_df:readDouble()
       points_df:readDouble()
@@ -74,7 +71,6 @@ function sfm.sba_testme ()
       -- read to end of line
       points_df:readString("*l")
    end
-   print("n3Dpts: "..n3Dpts.." n2Dproj: "..n2Dprojs)
    local vmask     = torch.CharTensor(n3Dpts,nframes):fill(0)
    local imgpts    = torch.Tensor(n2Dprojs * mnp)
    motstruct = torch.Tensor(nframes*cnp + n3Dpts*pnp)
@@ -113,11 +109,8 @@ function sfm.sba_testme ()
                                 - initrot[i][2]*initrot[i][2] 
                                 - initrot[i][3]*initrot[i][3]
                                 - initrot[i][4]*initrot[i][4])
-      print(motion[i][1],motion[i][2],motion[i][3])
-      print(initrot[i][1],initrot[i][2],initrot[i][3],initrot[i][4])
    end
-   print(initrot)   
--- now reread the points file
+   -- now reread the points file
    points_df:seek(1)
    points_df:readString("*l") -- skip header 
    local structure = motstruct:narrow(1,nframes*cnp+1,n3Dpts*pnp)
@@ -141,9 +134,10 @@ function sfm.sba_testme ()
 
    local calibration=torch.Tensor(3,3)
    local calib_df = torch.DiskFile(calibfname)
+   print("opening "..calibfname)
+
    calibration:copy(torch.Tensor(calib_df:readDouble(9)))
    calib_df:close()
-   print(calibration)
-   print("about to call sfm.sba()")
+   
    sfm.sba(motstruct,nframes,n3Dpts,vmask,initrot,imgprojs,calibration)
 end
