@@ -1531,19 +1531,16 @@ static void img_projsKDS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, i
 
 
 /* Driver for sba_xxx_levmar */
-// double *cams_ptr, double *pts_ptr, double *calib_ptr,
+/* FIXME break this into the individual calls to sba_xxx_levmar. */
+
 void sba_driver_c(double * motstruct,int nframes, int numpts3D, 
                   double * initrot, double * imgpts, int numprojs,
                   char * vmask, double * calib_ptr,
-                  int cnp, int pnp, int mnp,
-                  void (*caminfilter)(double *pin, int nin, double *pout, int nout),
-                  void (*camoutfilter)(double *pin, int nin, double *pout, int nout),
-                  int filecnp,
-                  double *refcams_ptr, double *refpts_ptr
-                )
+                  int cnp, int pnp, int mnp)
 {
   double *motstruct_copy, *covimgpts;
-  double ical[5]; // intrinsic calibration matrix & temp. storage for its params
+  double ical[5]; /* intrinsic calibration matrix & temp. storage for
+                     its params */
   char tbuf[32];
   double opts[SBA_OPTSSZ], info[SBA_INFOSZ], phi;
   int howto, expert, analyticjac, fixedcal, havedist, n, prnt, verbose=0;

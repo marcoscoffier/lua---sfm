@@ -46,8 +46,8 @@ static int libsfm_(sba_driver) (lua_State *L) {
   sba_driver_c(motstruct_ptr,nframes,n3Dpts,initrot_ptr,
                imgproj_ptr,numprojs,
                vmask_ptr,calib_ptr,
-               cnp,pnp,mnp,
-               quat2vec, vec2quat, cnp+1, refcams_ptr, refpts_ptr);  return 0;
+               cnp,pnp,mnp);
+  return 0;
 }
 
 //============================================================

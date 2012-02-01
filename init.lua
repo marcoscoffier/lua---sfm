@@ -12,8 +12,8 @@ sfm.cnp = 6 -- 3 rot params + 3 trans params
 sfm.pnp = 3 -- euclidean 3D points 
 sfm.mnp = 2 -- x,y projection in image
 
--- this should be renamed expert
-function sfm.sba (...)
+-- takes an already created motstruct,vmask,initrot and imgproj
+function sfm.sba_expert (...)
    local _, motstruct, nframes, n3Dpts, vmask, initrot, 
    imgproj, calibration = xlua.unpack(
       {...},
@@ -73,7 +73,7 @@ function sfm.sba_testme ()
    end
    local vmask     = torch.CharTensor(n3Dpts,nframes):fill(0)
    local imgpts    = torch.Tensor(n2Dprojs * mnp)
-   motstruct = torch.Tensor(nframes*cnp + n3Dpts*pnp)
+   local motstruct = torch.Tensor(nframes*cnp + n3Dpts*pnp)
    local motion = motstruct:narrow(1,1,nframes*cnp)
    motion:resize(nframes,cnp)
    local fullquatz = 4
@@ -139,5 +139,5 @@ function sfm.sba_testme ()
    calibration:copy(torch.Tensor(calib_df:readDouble(9)))
    calib_df:close()
    
-   sfm.sba(motstruct,nframes,n3Dpts,vmask,initrot,imgprojs,calibration)
+   sfm.sba_expert(motstruct,nframes,n3Dpts,vmask,initrot,imgprojs,calibration)
 end
