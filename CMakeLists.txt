@@ -28,6 +28,7 @@ link_directories (${TORCH_LIBRARY_DIR})
 set (CMAKE_C_FLAGS "-fPIC")
 target_link_libraries (sfm ${TORCH_LIBRARIES} sbaexample sba)
 
-install_files(/lua/sfm init.lua)
+FILE(GLOB files "${CMAKE_CURRENT_SOURCE_DIR}/examples/*txt")
+install_files(/lua/sfm FILES init.lua ${files})
 install_targets(/lib sfm)
 

@@ -3,7 +3,60 @@
 #else
 
 static int libsfm_(sba_driver) (lua_State *L) {
-  return 0;
+  printf("ing sba_driver\n");
+  THTensor * motstruct   = luaT_checkudata(L,1, torch_(Tensor_id));
+  int nframes            = luaL_checknumber(L,2);  
+  int n3Dpts             = luaL_checknumber(L,3);  
+  THCharTensor * vmask   = luaT_checkudata(L,4, torch_CharTensor_id);
+  THTensor * initrot     = luaT_checkudata(L,5, torch_(Tensor_id));
+  THTensor * imgproj     = luaT_checkudata(L,6, torch_(Tensor_id));
+  printf("done args motstruct size\n");
+  THTensor * calibration = NULL;
+  if (!lua_isnil(L,7)) {
+    calibration = luaT_checkudata(L,7, torch_(Tensor_id));
+  }
+  printf("done calibration\n");
+  /* FIXME get these from the sfm.cnp etc. */
+  int cnp      = 6; /* 3 rot params + 3 trans params */
+  int pnp      = 3; /* euclidean 3D points */
+  int mnp      = 2;
+  int numprojs = imgproj->size[0];
+  printf("done init nframes: %d\n",nframes);
+  double * motstruct_ptr;
+  char * vmask_ptr;
+  double * initrot_ptr;
+  double * imgproj_ptr;
+  double * calib_ptr;
+  double * refcams_ptr;
+  double * refpts_ptr;
+  refcams_ptr=NULL;
+  refpts_ptr=NULL;
+  int i;
+  
+#ifdef TH_REAL_IS_DOUBLE
+  printf("starting ifdef\n");
+  /* avoid the copy if we can */
+  motstruct_ptr = THDoubleTensor_data(motstruct);
+  vmask_ptr     = THCharTensor_data(vmask);
+  initrot_ptr   = THDoubleTensor_data(initrot);
+  imgproj_ptr   = THDoubleTensor_data(imgproj);
+  printf("check calibration\n");
+  if ((calibration != NULL) && (calibration->size[1] > 0)) {
+    calib_ptr  = THDoubleTensor_data(calibration); 
+  }else{
+    calib_ptr = NULL; 
+  }
+#else
+  /* must copy into a double */
+#endif /* TH_REAL_IS_DOUBLE */
+  printf("about to call sba_driver\n");
+  printf("nframes: %d npts3D: %d numprojs: %d\n",
+    nframes,n3Dpts,numprojs);
+  sba_driver_c(motstruct_ptr,nframes,n3Dpts,initrot_ptr,
+               imgproj_ptr,numprojs,
+               vmask_ptr,calib_ptr,
+               cnp,pnp,mnp,
+               quat2vec, vec2quat, cnp+1, refcams_ptr, refpts_ptr);  return 0;
 }
 
 //============================================================

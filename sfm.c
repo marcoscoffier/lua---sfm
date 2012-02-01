@@ -2,7 +2,7 @@
  * static inline functions, for speed I suppose, which I am coping
  * into this file.  I modified the CMakeLists to create an lib for the
  * rest of the functions in sba-1.6/demo.  The main function in this
- * file is sba_driver_torch() (line 1456) which is a modified version
+ * file is sba_driver_c() (line 1463) which is a modified version
  * which accepts torch tensors rather than filenames in the original
  * demo code.
  *
@@ -1460,20 +1460,24 @@ static void img_projsKDS_jac_x(double *p, struct sba_crsm *idxij, int *rcidxs, i
 
 
 /* Driver for sba_xxx_levmar */
-void sba_driver_c(double *cams_ptr, double *pts_ptr, double *calib_ptr,
-                int cnp, int pnp, int mnp,
-                void (*caminfilter)(double *pin, int nin, double *pout, int nout),
-                void (*camoutfilter)(double *pin, int nin, double *pout, int nout),
-                int filecnp,
-                double *refcams_ptr, double *refpts_ptr
+// double *cams_ptr, double *pts_ptr, double *calib_ptr,
+void sba_driver_c(double * motstruct,int nframes, int numpts3D, 
+                  double * initrot, double * imgpts, int numprojs,
+                  char * vmask, double * calib_ptr,
+                  int cnp, int pnp, int mnp,
+                  void (*caminfilter)(double *pin, int nin, double *pout, int nout),
+                  void (*camoutfilter)(double *pin, int nin, double *pout, int nout),
+                  int filecnp,
+                  double *refcams_ptr, double *refpts_ptr
                 )
 {
-  double *motstruct, *motstruct_copy, *imgpts, *covimgpts, *initrot;
+  printf("0\n");
+  double *motstruct_copy, *covimgpts;
   double ical[5]; // intrinsic calibration matrix & temp. storage for its params
-  char *vmask, tbuf[32];
+  char tbuf[32];
   double opts[SBA_OPTSSZ], info[SBA_INFOSZ], phi;
   int howto, expert, analyticjac, fixedcal, havedist, n, prnt, verbose=0;
-  int nframes, numpts3D, numprojs, nvars;
+  int nvars;
   const int nconstframes=0;
   register int i;
   FILE *fp;
@@ -1511,18 +1515,13 @@ void sba_driver_c(double *cams_ptr, double *pts_ptr, double *calib_ptr,
 
   /* NOTE: readInitialSBAEstimate() sets covimgpts to NULL if no covariances are supplied */
   /* FIXME: initialize */
-  nframes   = 1;
-  numpts3D  = 1;
-  numprojs  = 1;
-  motstruct = NULL;
-  initrot   = NULL;
-  imgpts    = NULL;
   covimgpts = NULL;
-  vmask     = NULL;
-  /* readInitialSBAEstimate(camsfname, ptsfname, cnp, pnp, mnp, caminfilter, filecnp, //NULL, 0, 
+  /* readInitialSBAEstimate(camsfname, ptsfname, cnp, pnp, mnp, caminfilter, filecnp, //NULL, 0,
    *                      &nframes, &numpts3D, &numprojs, &motstruct, &initrot, &imgpts, &covimgpts, &vmask);
    */
-  //printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, numpts3D, imgpts, numprojs, vmask);
+  printf("1\n");
+  printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, numpts3D, imgpts, numprojs, vmask);
+  printf("2\n");
 
   if(howto!=BA_STRUCT){
     /* initialize the local rotation estimates to 0, corresponding to local quats (1, 0, 0, 0) */
@@ -1615,7 +1614,7 @@ void sba_driver_c(double *cams_ptr, double *pts_ptr, double *calib_ptr,
       nvars=numpts3D*pnp;
       if(expert)
         n=sba_str_levmar_x(numpts3D, 0, nframes, vmask, motstruct+nframes*cnp, pnp, imgpts, covimgpts, mnp,
-                          fixedcal? img_projsS_x : (havedist? img_projsKDS_x : img_projsKS_x), 
+                          fixedcal? img_projsS_x : (havedist? img_projsKDS_x : img_projsKS_x),
                           analyticjac? (fixedcal? img_projsS_jac_x : (havedist? img_projsKDS_jac_x : img_projsKS_jac_x)) : NULL,
                           (void *)(&globs), MAXITER, verbose, opts, info);
       else
@@ -1699,7 +1698,7 @@ void sba_driver_c(double *cams_ptr, double *pts_ptr, double *calib_ptr,
     }
   }
 
-	fflush(stdout);
+        fflush(stdout);
   fprintf(stdout, "SBA using %d 3D pts, %d frames and %d image projections, %d variables\n", numpts3D, nframes, numprojs, nvars);
   if(havedist) sprintf(tbuf, " (%d fixed)", globs.ncdist);
   fprintf(stdout, "\nMethod %s, %s driver, %s Jacobian, %s covariances, %s distortion%s, %s intrinsics", howtoname[howto],
@@ -1710,7 +1709,7 @@ void sba_driver_c(double *cams_ptr, double *pts_ptr, double *calib_ptr,
                   havedist? tbuf : "",
                   fixedcal? "fixed" : "variable");
   if(!fixedcal) fprintf(stdout, " (%d fixed)", globs.nccalib);
-  fputs("\n\n", stdout); 
+  fputs("\n\n", stdout);
   fprintf(stdout, "SBA returned %d in %g iter, reason %g, error %g [initial %g], %d/%d func/fjac evals, %d lin. systems\n", n,
                     info[5], info[6], info[1]/numprojs, info[0]/numprojs, (int)info[7], (int)info[8], (int)info[9]);
   fprintf(stdout, "Elapsed time: %.2lf seconds, %.2lf msecs\n", ((double) (end_time - start_time)) / CLOCKS_PER_SEC,
@@ -1775,11 +1774,11 @@ cleanup:
   globs.nccalib=0;
   globs.ncdist=0;
 
-  free(motstruct);
-  free(imgpts);
-  free(initrot); globs.rot0params=NULL;
-  if(covimgpts) free(covimgpts);
-  free(vmask);
+/*   free(motstruct); */
+/*   free(imgpts); */
+/*   free(initrot); globs.rot0params=NULL; */
+/*   if(covimgpts) free(covimgpts); */
+/*   free(vmask); */
 }
 
 /* convert a vector of camera parameters so that rotation is represented by
@@ -1861,23 +1860,24 @@ register int i;
 #define torch_string_(NAME) TH_CONCAT_STRING_3(torch., Real, NAME)
 #define libsfm_(NAME) TH_CONCAT_3(libsfm_, Real, NAME)
 
-static const void* torch_FloatTensor_id = NULL;
+static const void* torch_CharTensor_id   = NULL;
+static const void* torch_FloatTensor_id  = NULL;
 static const void* torch_DoubleTensor_id = NULL;
-
 
 #include "generic/sfm.c"
 #include "THGenerateFloatTypes.h"
 
 DLL_EXPORT int luaopen_libsfm(lua_State *L)
 {
-  torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
+  torch_CharTensor_id   = luaT_checktypename2id(L, "torch.CharTensor");
+  torch_FloatTensor_id  = luaT_checktypename2id(L, "torch.FloatTensor");
   torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
 
-  libsfm_FloatMain_init(L);
+  //  libsfm_FloatMain_init(L);
   libsfm_DoubleMain_init(L);
 
   luaL_register(L, "libsfm.double", libsfm_DoubleMain__);
-  luaL_register(L, "libsfm.float", libsfm_FloatMain__);
+  //luaL_register(L, "libsfm.float", libsfm_FloatMain__);
 
   return 1;
 }

@@ -1498,7 +1498,7 @@ void sba_driver(char *camsfname, char *ptsfname, char *calibfname, int cnp, int 
   readInitialSBAEstimate(camsfname, ptsfname, cnp, pnp, mnp, caminfilter, filecnp, //NULL, 0, 
                          &nframes, &numpts3D, &numprojs, &motstruct, &initrot, &imgpts, &covimgpts, &vmask);
 
-  //printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, numpts3D, imgpts, numprojs, vmask);
+  printSBAData(stdout, motstruct, cnp, pnp, mnp, camoutfilter, filecnp, nframes, numpts3D, imgpts, numprojs, vmask);
 
   if(howto!=BA_STRUCT){
     /* initialize the local rotation estimates to 0, corresponding to local quats (1, 0, 0, 0) */
