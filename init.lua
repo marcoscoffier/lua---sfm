@@ -146,34 +146,22 @@ function sfm.sba_points (...)
                                initrot,imgprojs, calibration)
    return motion,structure,calibration
 end
-
-function sfm.sba_testme () 
-   -- similar to the expert case but the initrot and and vmask are
-   -- computed int the sfm.sba() function
-   local camerafname = sys.concat(sys.fpath(), "7cams.txt")
-   local pointsfname = sys.concat(sys.fpath(), "7pts.txt")
-   local calibfname  = sys.concat(sys.fpath(), "calib.txt")
-   print("opening "..camerafname)
-   local nframes=tonumber(sys.execute("wc -l "..camerafname):match("%d+"))
-   sfm.cnp = 6
-   sfm.pnp = 3
-   sfm.mnp = 2
-   local cnp = sfm.cnp
-   local pnp = sfm.pnp
-   local mnp = sfm.mnp
-   local filecnp = 7
-   local camera    = torch.Tensor(nframes,filecnp)
-   local camera_df = torch.DiskFile(camerafname)
-
-   camera:copy(torch.Tensor(camera_df:readDouble(nframes*(filecnp))))
-   camera_df:close()
-
-   print("opening "..pointsfname)
+-- opens a points file in the format of the sba demo files
+function sfm.pointsfile_get_npts(pointsfname,points_df)
+   local must_close = false
+   if not points_df then 
+      print("opening "..pointsfname)
+      points_df = torch.DiskFile(pointsfname)
+      must_close = true
+   end
+   points_df:seek(1)
+   local header = points_df:readString("*l")
+   
    local n3Dpts=sys.execute("wc -l "..pointsfname):match("%d+")
    n3Dpts=n3Dpts-1
+   
    local n2Dprojs = 0
-   local points_df = torch.DiskFile(pointsfname)
-   local header = points_df:readString("*l")
+   
    for i = 1,n3Dpts do
       points_df:readDouble()
       points_df:readDouble()
@@ -182,9 +170,116 @@ function sfm.sba_testme ()
       -- read to end of line
       points_df:readString("*l")
    end
+   if must_close then 
+      print("closing "..pointsfname) 
+      points_df:close()
+   end
+   return n3Dpts,n2Dprojs
+end
+
+function sfm.pointsfile_get_points(points_df,
+                                   n3Dpts,pnp,
+                                   n2Dprojs,mnp,
+                                   nframes,cnp)
    local vmask     = torch.CharTensor(n3Dpts,nframes):fill(0)
-   local imgpts    = torch.Tensor(n2Dprojs * mnp)
    local motstruct = torch.Tensor(nframes*cnp + n3Dpts*pnp)
+   local motion = motstruct:narrow(1,1,nframes*cnp)
+   motion:resize(nframes,cnp)
+   -- now reread the points file
+   points_df:seek(1)
+   points_df:readString("*l") -- skip header 
+   local structure = motstruct:narrow(1,nframes*cnp+1,n3Dpts*pnp)
+   structure:resize(n3Dpts,pnp)
+   local imgprojs = torch.Tensor(n2Dprojs,mnp)
+   local cproj = 1
+   for i = 1,n3Dpts do
+      structure[i][1] = points_df:readDouble()
+      structure[i][2] = points_df:readDouble()
+      structure[i][3] = points_df:readDouble()
+      local nframes = points_df:readInt()
+      for j = 1,nframes do 
+         local fnum = points_df:readInt()
+         imgprojs[cproj][1] = points_df:readDouble()
+         imgprojs[cproj][2] = points_df:readDouble()
+         vmask[i][fnum+1]=1
+         cproj = cproj+1
+      end
+   end
+   return motstruct,structure,imgprojs,vmask
+end
+
+function sfm.load_points_file(pointsfname,nframes,cnp,pnp,mnp)
+   local points_df = torch.DiskFile(pointsfname)
+   local n3Dpts, n2Dprojs = sfm.pointsfile_get_npts(pointsfname,points_df)
+   local motstruct,structure,imgprojs,vmask = 
+      sfm.pointsfile_get_points(points_df, n3Dpts, pnp, 
+                                n2Dprojs,mnp, nframes,cnp)
+   points_df:close()
+   return n3Dpts,n2Dprojs,motstruct,structure,imgprojs,vmask 
+end
+
+function sfm.load_camera_file(camerafname,filecnp)
+   print("opening "..camerafname)
+   local nframes=tonumber(sys.execute("wc -l "..camerafname):match("%d+"))
+   if not filecnp then 
+      filecnp = 7
+   end
+   local camera    = torch.Tensor(nframes,filecnp)
+   local camera_df = torch.DiskFile(camerafname)
+
+   camera:copy(torch.Tensor(camera_df:readDouble(nframes*(filecnp))))
+   camera_df:close()
+   return camera,nframes
+end
+
+function sfm.load_calibration_file(calibfname)
+   local calibration=torch.Tensor(3,3)
+   local calib_df = torch.DiskFile(calibfname)
+   print("opening "..calibfname)
+
+   calibration:copy(torch.Tensor(calib_df:readDouble(9)))
+   calib_df:close()
+   return calibration
+end
+
+function sfm.sba_test_projection () 
+   -- test my projection function
+   local camerafname = sys.concat(sys.fpath(), "7cams.txt")
+   local pointsfname = sys.concat(sys.fpath(), "7pts.txt")
+   local calibfname  = sys.concat(sys.fpath(), "calib.txt")
+   sfm.cnp = 6
+   sfm.pnp = 3
+   sfm.mnp = 2
+   local cnp = sfm.cnp
+   local pnp = sfm.pnp
+   local mnp = sfm.mnp
+
+   local calibration = sfm.load_calibration_file(calibfname)
+   local camera,nframes = sfm.load_camera_file(camerafname)
+   local n3Dpts,n2Dprojs,motstruct,structure,imgprojs,vmask = 
+      sfm.load_points_file(pointsfname,pointsfile,nframes,cnp,pnp,mnp)
+
+end
+
+
+function sfm.sba_testme () 
+   -- similar to the expert case but the initrot and and vmask are
+   -- computed int the sfm.sba() function
+   local camerafname = sys.concat(sys.fpath(), "7cams.txt")
+   local pointsfname = sys.concat(sys.fpath(), "7pts.txt")
+   local calibfname  = sys.concat(sys.fpath(), "calib.txt")
+   sfm.cnp = 6
+   sfm.pnp = 3
+   sfm.mnp = 2
+   local cnp = sfm.cnp
+   local pnp = sfm.pnp
+   local mnp = sfm.mnp
+   local filecnp = 7
+   local calibration = sfm.load_calibration_file(calibfname)
+   local camera,nframes = sfm.load_camera_file(camerafname)
+   local n3Dpts,n2Dprojs,motstruct,structure,imgprojs,vmask = 
+      sfm.load_points_file(pointsfname,nframes,cnp,pnp,mnp)
+
    local motion = motstruct:narrow(1,1,nframes*cnp)
    motion:resize(nframes,cnp)
    local fullquatz = 4
@@ -220,38 +315,10 @@ function sfm.sba_testme ()
                                 - initrot[i][3]*initrot[i][3]
                                 - initrot[i][4]*initrot[i][4])
    end
-   -- now reread the points file
-   points_df:seek(1)
-   points_df:readString("*l") -- skip header 
-   local structure = motstruct:narrow(1,nframes*cnp+1,n3Dpts*pnp)
-   structure:resize(n3Dpts,pnp)
-   local imgprojs = torch.Tensor(n2Dprojs,mnp)
-   local cproj = 1
-   for i = 1,n3Dpts do
-      structure[i][1] = points_df:readDouble()
-      structure[i][2] = points_df:readDouble()
-      structure[i][3] = points_df:readDouble()
-      local nframes = points_df:readInt()
-      for j = 1,nframes do 
-         local fnum = points_df:readInt()
-         imgprojs[cproj][1] = points_df:readDouble()
-         imgprojs[cproj][2] = points_df:readDouble()
-         vmask[i][fnum+1]=1
-         cproj = cproj+1
-      end
-   end
-   points_df:close()
-
-   local calibration=torch.Tensor(3,3)
-   local calib_df = torch.DiskFile(calibfname)
-   print("opening "..calibfname)
-
-   calibration:copy(torch.Tensor(calib_df:readDouble(9)))
-   calib_df:close()
    sfm.sba_expert(motstruct,nframes,n3Dpts,vmask,initrot,imgprojs,calibration)
 end
 
-function sfm.sba_expert_testme () 
+function sfm.sba_testme_expert () 
    local camerafname = sys.concat(sys.fpath(), "7cams.txt")
    local pointsfname = sys.concat(sys.fpath(), "7pts.txt")
    local calibfname = sys.concat(sys.fpath(), "calib.txt")

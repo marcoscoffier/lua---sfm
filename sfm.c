@@ -1543,7 +1543,7 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
                      its params */
   char tbuf[32];
   double opts[SBA_OPTSSZ], info[SBA_INFOSZ], phi;
-  int howto, expert, analyticjac, fixedcal, havedist, n, prnt, verbose=0;
+  int howto, expert, analyticjac, fixedcal, havedist, n, prnt, verbose=1;
   int nvars;
   const int nconstframes=0;
   register int i;

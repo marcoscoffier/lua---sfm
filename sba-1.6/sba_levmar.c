@@ -443,124 +443,182 @@ typedef int (*PLS)(double *A, double *B, double *x, int m, int iscolmaj);
 /* Bundle adjustment on camera and structure parameters 
  * using the sparse Levenberg-Marquardt as described in HZ p. 568
  *
- * Returns the number of iterations (>=0) if successfull, SBA_ERROR if failed
+ * Returns the number of iterations (>=0) if successfull, SBA_ERROR if
+ * failed
  */
 
 int sba_motstr_levmar_x(
     const int n,   /* number of points */
-    const int ncon,/* number of points (starting from the 1st) whose parameters should not be modified.
-                   * All B_ij (see below) with i<ncon are assumed to be zero
-                   */
+    const int ncon,/* number of points (starting from the 1st) whose
+                    * parameters should not be modified.  All B_ij (see
+                    * below) with i<ncon are assumed to be zero
+                    */
     const int m,   /* number of images */
-    const int mcon,/* number of images (starting from the 1st) whose parameters should not be modified.
-					          * All A_ij (see below) with j<mcon are assumed to be zero
-					          */
-    char *vmask,  /* visibility mask: vmask[i, j]=1 if point i visible in image j, 0 otherwise. nxm */
-    double *p,    /* initial parameter vector p0: (a1, ..., am, b1, ..., bn).
-                   * aj are the image j parameters, bi are the i-th point parameters,
-                   * size m*cnp + n*pnp
+    const int mcon,/* number of images (starting from the 1st) whose
+                    * parameters should not be modified.  All A_ij
+                    * (see below) with j<mcon are assumed to be zero
+                    */
+    char *vmask,  /* visibility mask: vmask[i, j]=1 if point i visible
+                     in image j, 0 otherwise. nxm */
+    double *p,    /* initial parameter vector p0: (a1, ..., am, b1,
+                   * ..., bn).  aj are the image j parameters, bi are
+                   * the i-th point parameters, size m*cnp + n*pnp
                    */
-    const int cnp,/* number of parameters for ONE camera; e.g. 6 for Euclidean cameras */
-    const int pnp,/* number of parameters for ONE point; e.g. 3 for Euclidean points */
-    double *x,    /* measurements vector: (x_11^T, .. x_1m^T, ..., x_n1^T, .. x_nm^T)^T where
-                   * x_ij is the projection of the i-th point on the j-th image.
-                   * NOTE: some of the x_ij might be missing, if point i is not visible in image j;
-                   * see vmask[i, j], max. size n*m*mnp
+    const int cnp,/* number of parameters for ONE camera; e.g. 6 for
+                     Euclidean cameras */
+    const int pnp,/* number of parameters for ONE point; e.g. 3 for
+                     Euclidean points */
+    double *x,    /* measurements vector: (x_11^T, .. x_1m^T, ...,
+                   * x_n1^T, .. x_nm^T)^T where x_ij is the projection
+                   * of the i-th point on the j-th image.  NOTE: some
+                   * of the x_ij might be missing, if point i is not
+                   * visible in image j; see vmask[i, j], max. size
+                   * n*m*mnp
                    */
-    double *covx, /* measurements covariance matrices: (Sigma_x_11, .. Sigma_x_1m, ..., Sigma_x_n1, .. Sigma_x_nm),
-                   * where Sigma_x_ij is the mnp x mnp covariance of x_ij stored row-by-row. Set to NULL if no
-                   * covariance estimates are available (identity matrices are implicitly used in this case).
-                   * NOTE: a certain Sigma_x_ij is missing if the corresponding x_ij is also missing;
-                   * see vmask[i, j], max. size n*m*mnp*mnp
+    double *covx, /* measurements covariance matrices: (Sigma_x_11,
+                   * .. Sigma_x_1m, ..., Sigma_x_n1, .. Sigma_x_nm),
+                   * where Sigma_x_ij is the mnp x mnp covariance of
+                   * x_ij stored row-by-row. Set to NULL if no
+                   * covariance estimates are available (identity
+                   * matrices are implicitly used in this case).
+                   * NOTE: a certain Sigma_x_ij is missing if the
+                   * corresponding x_ij is also missing; see vmask[i,
+                   * j], max. size n*m*mnp*mnp
                    */
-    const int mnp,/* number of parameters for EACH measurement; usually 2 */
-    void (*func)(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *hx, void *adata),
-                                              /* functional relation describing measurements. Given a parameter vector p,
-                                               * computes a prediction of the measurements \hat{x}. p is (m*cnp + n*pnp)x1,
-                                               * \hat{x} is (n*m*mnp)x1, maximum
-                                               * rcidxs, rcsubs are max(m, n) x 1, allocated by the caller and can be used
-                                               * as working memory
-                                               */
-    void (*fjac)(double *p, struct sba_crsm *idxij, int *rcidxs, int *rcsubs, double *jac, void *adata),
-                                              /* function to evaluate the sparse jacobian dX/dp.
-                                               * The Jacobian is returned in jac as
-                                               * (dx_11/da_1, ..., dx_1m/da_m, ..., dx_n1/da_1, ..., dx_nm/da_m,
-                                               *  dx_11/db_1, ..., dx_1m/db_1, ..., dx_n1/db_n, ..., dx_nm/db_n), or (using HZ's notation),
-                                               * jac=(A_11, B_11, ..., A_1m, B_1m, ..., A_n1, B_n1, ..., A_nm, B_nm)
-                                               * Notice that depending on idxij, some of the A_ij and B_ij might be missing.
-                                               * Note also that A_ij and B_ij are mnp x cnp and mnp x pnp matrices resp. and they
-                                               * should be stored in jac in row-major order.
-                                               * rcidxs, rcsubs are max(m, n) x 1, allocated by the caller and can be used
-                                               * as working memory
-                                               *
-                                               * If NULL, the jacobian is approximated by repetitive func calls and finite
-                                               * differences. This is computationally inefficient and thus NOT recommended.
-                                               */
-    void *adata,       /* pointer to possibly additional data, passed uninterpreted to func, fjac */ 
+    const int mnp,/* number of parameters for EACH measurement;
+                     usually 2 */
+    void (*func)
+    (double *p, struct sba_crsm *idxij, int *rcidxs,
+     int *rcsubs, double *hx,
+     void *adata), /* functional relation describing
+                    * measurements. Given a parameter vector p,
+                    * computes a prediction of the measurements
+                    * \hat{x}. p is (m*cnp * + n*pnp)x1, \hat{x} is
+                    * (n*m*mnp)x1, maximum rcidxs, rcsubs are
+                    * max(m, n) * x 1, allocated by the caller and
+                    * can be used as working memory
+                    */
+    void (*fjac)
+    (double *p, struct sba_crsm *idxij, int *rcidxs,
+     int *rcsubs, double *jac,
+     void *adata), /* function to evaluate the sparse jacobian dX/dp.
+                    * The Jacobian is returned in jac as (dx_11/da_1,
+                    * ..., dx_1m/da_m, ..., dx_n1/da_1, ...,
+                    * dx_nm/da_m, dx_11/db_1, ..., dx_1m/db_1, ...,
+                    * dx_n1/db_n, ..., dx_nm/db_n), or (using HZ's
+                    * notation), jac=(A_11, B_11, ..., A_1m, B_1m,
+                    * ..., A_n1, B_n1, ..., A_nm, B_nm) Notice that
+                    * depending on idxij, some of the A_ij and B_ij
+                    * might be missing.  Note also that A_ij and B_ij
+                    * are mnp x cnp and mnp x pnp matrices resp. and
+                    * they should be stored in jac in row-major order.
+                    * rcidxs, rcsubs are max(m, n) x 1, allocated by
+                    * the caller and can be used as working memory
+                    *
+                    * If NULL, the jacobian is approximated by
+                    * repetitive func calls and finite
+                    * differences. This is computationally inefficient
+                    * and thus NOT recommended.
+                    */
+    void *adata,   /* pointer to possibly additional data, passed
+                      uninterpreted to func, fjac */ 
 
-    const int itmax,   /* I: maximum number of iterations. itmax==0 signals jacobian verification followed by immediate return */
+    const int itmax,   /* I: maximum number of iterations. itmax==0
+                          signals jacobian verification followed by
+                          immediate return */
     const int verbose, /* I: verbosity */
-    const double opts[SBA_OPTSSZ],
-	                     /* I: minim. options [\mu, \epsilon1, \epsilon2, \epsilon3, \epsilon4]. Respectively the scale factor for initial \mu,
-                        * stopping thresholds for ||J^T e||_inf, ||dp||_2, ||e||_2 and (||e||_2-||e_new||_2)/||e||_2
+    const double opts[SBA_OPTSSZ],  /* I: minim. options [\mu,
+                        * \epsilon1, \epsilon2, \epsilon3,
+                        * \epsilon4]. Respectively the scale factor
+                        * for initial \mu, stopping thresholds for
+                        * ||J^T e||_inf, ||dp||_2, ||e||_2 and
+                        * (||e||_2-||e_new||_2)/||e||_2
                         */
-    double info[SBA_INFOSZ]
-	                     /* O: information regarding the minimization. Set to NULL if don't care
-                        * info[0]=||e||_2 at initial p.
-                        * info[1-4]=[ ||e||_2, ||J^T e||_inf,  ||dp||_2, mu/max[J^T J]_ii ], all computed at estimated p.
-                        * info[5]= # iterations,
-                        * info[6]=reason for terminating: 1 - stopped by small gradient J^T e
-                        *                                 2 - stopped by small dp
-                        *                                 3 - stopped by itmax
-                        *                                 4 - stopped by small relative reduction in ||e||_2
-                        *                                 5 - stopped by small ||e||_2
-                        *                                 6 - too many attempts to increase damping. Restart with increased mu
-                        *                                 7 - stopped by invalid (i.e. NaN or Inf) "func" values. This is a user error
-                        * info[7]= # function evaluations
-                        * info[8]= # jacobian evaluations
-			                  * info[9]= # number of linear systems solved, i.e. number of attempts	for reducing error
-                        */
+    double info[SBA_INFOSZ] /* O: information regarding the
+                               minimization. Set to NULL if don't care
+                             * info[0]=||e||_2 at initial p.
+                             * info[1-4]=[ ||e||_2,
+                             *             ||J^T e||_inf,
+                             *             ||dp||_2,
+                             *             mu/max[J^T J]_ii ],
+                             * all computed at estimated p.
+                             * info[5]= # iterations,
+                             * info[6]=reason for terminating:
+                             * 1 - stopped by small gradient J^T e
+                             * 2 - stopped by small dp
+                             * 3 - stopped by itmax
+                             * 4 - stopped by small relative reduction
+                             *     in ||e||_2
+                             * 5 - stopped by small ||e||_2 
+                             * 6 - too many attempts to increase
+                             *     damping. Restart with increased mu 
+                             * 7 - stopped by invalid (i.e. NaN or
+                             *     Inf) "func" values. This is a user
+                             *     error 
+                             * info[7]= # function evaluations
+                             * info[8]= # jacobian evaluations 
+                             * info[9]= # number of linear systems
+                             *          solved, i.e. number of
+                             *          attempts for reducing error
+                             */
 )
 {
 register int i, j, ii, jj, k, l;
 int nvis, nnz, retval;
 
-/* The following are work arrays that are dynamically allocated by sba_motstr_levmar_x() */
-double *jac;  /* work array for storing the jacobian, max. size n*m*(mnp*cnp + mnp*pnp) */
-double *U;    /* work array for storing the U_j in the order U_1, ..., U_m, size m*cnp*cnp */
-double *V;    /* work array for storing the *strictly upper triangles* of V_i in the order V_1, ..., V_n, size n*pnp*pnp.
-               * V also stores the lower triangles of (V*_i)^-1 in the order (V*_1)^-1, ..., (V*_n)^-1.
-               * Note that diagonal elements of V_1 are saved in diagUV
+/* The following are work arrays that are dynamically allocated by
+   sba_motstr_levmar_x() */
+double *jac;  /* work array for storing the jacobian, max. size
+                 n*m*(mnp*cnp + mnp*pnp) */
+double *U;    /* work array for storing the U_j in the order U_1, ...,
+                 U_m, size m*cnp*cnp */
+double *V;    /* work array for storing the *strictly upper triangles*
+               * of V_i in the order V_1, ..., V_n, size n*pnp*pnp.  V
+               * also stores the lower triangles of (V*_i)^-1 in the
+               * order (V*_1)^-1, ..., (V*_n)^-1.  Note that diagonal
+               * elements of V_1 are saved in diagUV
                */
 
-double *e;    /* work array for storing the e_ij in the order e_11, ..., e_1m, ..., e_n1, ..., e_nm,
-                 max. size n*m*mnp */
-double *eab;  /* work array for storing the ea_j & eb_i in the order ea_1, .. ea_m eb_1, .. eb_n size m*cnp + n*pnp */
+double *e;    /* work array for storing the e_ij in the order e_11,
+                 ..., e_1m, ..., e_n1, ..., e_nm, max. size n*m*mnp */
+double *eab;  /* work array for storing the ea_j & eb_i in the order
+                 ea_1, .. ea_m eb_1, .. eb_n size m*cnp + n*pnp */
 
-double *E;   /* work array for storing the e_j in the order e_1, .. e_m, size m*cnp */
+double *E;   /* work array for storing the e_j in the order e_1,
+                .. e_m, size m*cnp */
 
-/* Notice that the blocks W_ij, Y_ij are zero iff A_ij (equivalently B_ij) is zero. This means
- * that the matrix consisting of blocks W_ij is itself sparse, similarly to the
- * block matrix made up of the A_ij and B_ij (i.e. jac)
+/* Notice that the blocks W_ij, Y_ij are zero iff A_ij (equivalently
+ * B_ij) is zero. This means that the matrix consisting of blocks W_ij
+ * is itself sparse, similarly to the block matrix made up of the A_ij
+ * and B_ij (i.e. jac)
  */
-double *W;    /* work array for storing the W_ij in the order W_11, ..., W_1m, ..., W_n1, ..., W_nm,
-                 max. size n*m*cnp*pnp */
-double *Yj;   /* work array for storing the Y_ij for a *fixed* j in the order Y_1j, Y_nj,
-                 max. size n*cnp*pnp */
-double *YWt;  /* work array for storing \sum_i Y_ij W_ik^T, size cnp*cnp */
-double *S;    /* work array for storing the block array S_jk, size m*m*cnp*cnp */
-double *dp;   /* work array for storing the parameter vector updates da_1, ..., da_m, db_1, ..., db_n, size m*cnp + n*pnp */
-double *Wtda; /* work array for storing \sum_j W_ij^T da_j, size pnp */
-double *wght= /* work array for storing the weights computed from the covariance inverses, max. size n*m*mnp*mnp */
-            NULL;
+double *W;    /* work array for storing the W_ij in the order W_11,
+                 ..., W_1m, ..., W_n1, ..., W_nm, max. size
+                 n*m*cnp*pnp */
+double *Yj;   /* work array for storing the Y_ij for a *fixed* j in
+                 the order Y_1j, Y_nj, max. size n*cnp*pnp */
+double *YWt;  /* work array for storing \sum_i Y_ij W_ik^T, size
+                 cnp*cnp */
+double *S;    /* work array for storing the block array S_jk, size
+                 m*m*cnp*cnp */
+double *dp;   /* work array for storing the parameter vector updates
+                 da_1, ..., da_m, db_1, ..., db_n, size m*cnp +
+                 n*pnp */
+double *Wtda; /* work array for storing \sum_j W_ij^T da_j, size
+                 pnp */
+double *wght=  NULL; /* work array for storing the weights computed
+                        from the covariance inverses, max. size
+                        n*m*mnp*mnp */
+ 
 
-/* Of the above arrays, jac, e, W, Yj, wght are sparse and
- * U, V, eab, E, S, dp are dense. Sparse arrays (except Yj) are indexed
- * through idxij (see below), that is with the same mechanism as the input 
+/* Of the above arrays, jac, e, W, Yj, wght are sparse and U, V, eab,
+ * E, S, dp are dense. Sparse arrays (except Yj) are indexed through
+ * idxij (see below), that is with the same mechanism as the input
  * measurements vector x
  */
 
-double *pa, *pb, *ea, *eb, *dpa, *dpb; /* pointers into p, jac, eab and dp respectively */
+double *pa, *pb, *ea, *eb, *dpa, *dpb; /* pointers into p, jac, eab
+                                          and dp respectively */
 
 /* submatrices sizes */
 int Asz, Bsz, ABsz, Usz, Vsz,
@@ -570,19 +628,26 @@ int Asz, Bsz, ABsz, Usz, Vsz,
 int Sdim; /* S matrix actual dimension */
 
 register double *ptr1, *ptr2, *ptr3, *ptr4, sum;
-struct sba_crsm idxij; /* sparse matrix containing the location of x_ij in x. This is also
-                        * the location of A_ij, B_ij in jac, etc.
-                        * This matrix can be thought as a map from a sparse set of pairs (i, j) to a continuous
-                        * index k and it is used to efficiently lookup the memory locations where the non-zero
-                        * blocks of a sparse matrix/vector are stored
+struct sba_crsm idxij; /* sparse matrix containing the location of
+                        * x_ij in x. This is also the location of
+                        * A_ij, B_ij in jac, etc.  This matrix can be
+                        * thought as a map from a sparse set of pairs
+                        * (i, j) to a continuous index k and it is
+                        * used to efficiently lookup the memory
+                        * locations where the non-zero blocks of a
+                        * sparse matrix/vector are stored
                         */
-int maxCvis, /* max. of projections of a single point  across cameras, <=m */
-    maxPvis, /* max. of projections in a single camera across points,  <=n */
+int maxCvis, /* max. of projections of a single point across cameras,
+                <=m */
+    maxPvis, /* max. of projections in a single camera across points,
+                <=n */
     maxCPvis, /* max. of the above */
-    *rcidxs,  /* work array for the indexes corresponding to the nonzero elements of a single row or
-                 column in a sparse matrix, size max(n, m) */
-    *rcsubs;  /* work array for the subscripts of nonzero elements in a single row or column of a
+    *rcidxs,  /* work array for the indexes corresponding to the
+                 nonzero elements of a single row or column in a
                  sparse matrix, size max(n, m) */
+    *rcsubs;  /* work array for the subscripts of nonzero elements in
+                 a single row or column of a sparse matrix, size
+                 max(n, m) */
 
 /* The following variables are needed by the LM algorithm */
 register int itno;  /* iteration counter */
@@ -649,11 +714,13 @@ void *jac_adata;
   }
   idxij.rowptr[n]=nvis;
 
-  /* find the maximum number (for all cameras) of visible image projections coming from a single 3D point */
+  /* find the maximum number (for all cameras) of visible image
+     projections coming from a single 3D point */
   for(i=maxCvis=0; i<n; ++i)
     if((k=idxij.rowptr[i+1]-idxij.rowptr[i])>maxCvis) maxCvis=k;
 
-  /* find the maximum number (for all points) of visible image projections in any single camera */
+  /* find the maximum number (for all points) of visible image
+     projections in any single camera */
   for(j=maxPvis=0; j<m; ++j){
     for(i=ii=0; i<n; ++i)
       if(vmask[i*m+j]) ++ii;
@@ -672,7 +739,8 @@ void *jac_adata;
 #endif
 
   /* allocate work arrays */
-  /* W is big enough to hold both jac & W. Note also the extra Wsz, see the initialization of jac below for explanation */
+  /* W is big enough to hold both jac & W. Note also the extra Wsz,
+     see the initialization of jac below for explanation */
   W=(double *)emalloc((nvis*((Wsz>=ABsz)? Wsz : ABsz) + Wsz)*sizeof(double));
   U=(double *)emalloc(m*Usz*sizeof(double));
   V=(double *)emalloc(n*Vsz*sizeof(double));
@@ -697,25 +765,26 @@ void *jac_adata;
   diagUV=(double *)emalloc(nvars*sizeof(double));
   pdp=(double *)emalloc(nvars*sizeof(double));
 
-  /* to save resources, W and jac share the same memory: First, the jacobian
-   * is computed in some working memory that is then overwritten during the
-   * computation of W. To account for the case of W being larger than jac,
-   * extra memory is reserved "before" jac.
-   * Care must be taken, however, to ensure that storing a certain W_ij
-   * does not overwrite the A_ij, B_ij used to compute it. To achieve
-   * this is, note that if p1 and p2 respectively point to the first elements
-   * of a certain W_ij and A_ij, B_ij pair, we should have p2-p1>=Wsz.
-   * There are two cases:
-   * a) Wsz>=ABsz: Then p1=W+k*Wsz and p2=jac+k*ABsz=W+Wsz+nvis*(Wsz-ABsz)+k*ABsz
-   *    for some k (0<=k<nvis), thus p2-p1=(nvis-k)*(Wsz-ABsz)+Wsz. 
-   *    The right side of the last equation is obviously > Wsz for all 0<=k<nvis
+  /* to save resources, W and jac share the same memory: First, the
+   * jacobian is computed in some working memory that is then
+   * overwritten during the computation of W. To account for the case
+   * of W being larger than jac, extra memory is reserved "before"
+   * jac.  Care must be taken, however, to ensure that storing a
+   * certain W_ij does not overwrite the A_ij, B_ij used to compute
+   * it. To achieve this is, note that if p1 and p2 respectively point
+   * to the first elements of a certain W_ij and A_ij, B_ij pair, we
+   * should have p2-p1>=Wsz.  There are two cases: a) Wsz>=ABsz: Then
+   * p1=W+k*Wsz and p2=jac+k*ABsz=W+Wsz+nvis*(Wsz-ABsz)+k*ABsz for
+   * some k (0<=k<nvis), thus p2-p1=(nvis-k)*(Wsz-ABsz)+Wsz.  The
+   * right side of the last equation is obviously > Wsz for all
+   * 0<=k<nvis
    *
    * b) Wsz<ABsz: Then p1=W+k*Wsz and p2=jac+k*ABsz=W+Wsz+k*ABsz and
    *    p2-p1=Wsz+k*(ABsz-Wsz), which is again > Wsz for all 0<=k<nvis
    *
-   * In conclusion, if jac is initialized as below, the memory allocated to all
-   * W_ij is guaranteed not to overlap with that allocated to their corresponding
-   * A_ij, B_ij pairs
+   * In conclusion, if jac is initialized as below, the memory
+   * allocated to all W_ij is guaranteed not to overlap with that
+   * allocated to their corresponding A_ij, B_ij pairs
    */
   jac=W + Wsz + ((Wsz>ABsz)? nvis*(Wsz-ABsz) : 0);
 
@@ -726,7 +795,8 @@ void *jac_adata;
 
   diagU=diagUV; diagV=diagUV + m*cnp;
 
-  /* if no jacobian function is supplied, prepare to compute jacobian with finite difference */
+  /* if no jacobian function is supplied, prepare to compute jacobian
+     with finite difference */
   if(!fjac){
     fdj_data.func=func;
     fdj_data.cnp=cnp;
@@ -752,11 +822,12 @@ void *jac_adata;
     goto freemem_and_return;
   }
 
-  /* covariances Sigma_x_ij are accommodated by computing the Cholesky decompositions of their
-   * inverses and using the resulting matrices w_x_ij to weigh A_ij, B_ij, and e_ij as w_x_ij A_ij,
-   * w_x_ij*B_ij and w_x_ij*e_ij. In this way, auxiliary variables as U_j=\sum_i A_ij^T A_ij
-   * actually become \sum_i (w_x_ij A_ij)^T w_x_ij A_ij= \sum_i A_ij^T w_x_ij^T w_x_ij A_ij =
-   * A_ij^T Sigma_x_ij^-1 A_ij
+  /* covariances Sigma_x_ij are accommodated by computing the Cholesky
+   * decompositions of their inverses and using the resulting matrices
+   * w_x_ij to weigh A_ij, B_ij, and e_ij as w_x_ij A_ij, w_x_ij*B_ij
+   * and w_x_ij*e_ij. In this way, auxiliary variables as U_j=\sum_i
+   * A_ij^T A_ij actually become \sum_i (w_x_ij A_ij)^T w_x_ij A_ij=
+   * \sum_i A_ij^T w_x_ij^T w_x_ij A_ij = A_ij^T Sigma_x_ij^-1 A_ij
    *
    * ea_j, V_i, eb_i, W_ij are weighted in a similar manner
    */
@@ -789,15 +860,16 @@ void *jac_adata;
   if(!SBA_FINITE(p_eL2)) stop=7;
 
   for(itno=0; itno<itmax && !stop; ++itno){
-    /* Note that p, e and ||e||_2 have been updated at the previous iteration */
+    /* Note that p, e and ||e||_2 have been updated at the previous
+       iteration */
 
     /* compute derivative submatrices A_ij, B_ij */
     (*fjac)(p, &idxij, rcidxs, rcsubs, jac, jac_adata); ++njev;
 
     if(covx!=NULL){
-      /* compute w_x_ij A_ij and w_x_ij B_ij.
-       * Since w_x_ij is upper triangular, the products can be safely saved
-       * directly in A_ij, B_ij, without the need for intermediate storage
+      /* compute w_x_ij A_ij and w_x_ij B_ij.  Since w_x_ij is upper
+       * triangular, the products can be safely saved directly in
+       * A_ij, B_ij, without the need for intermediate storage
        */
       for(i=0; i<nvis; ++i){
         /* set ptr1, ptr2, ptr3 to point to w_x_ij, A_ij, B_ij, resp. */
@@ -811,7 +883,8 @@ void *jac_adata;
         /* A_ij */
         for(ii=0; ii<mnp; ++ii)
           for(jj=0; jj<cnp; ++jj){
-            for(k=ii, sum=0.0; k<mnp; ++k) // k>=ii since w_x_ij is upper triangular
+            for(k=ii, sum=0.0; k<mnp; ++k) /* k>=ii since w_x_ij is
+                                              upper triangular */
               sum+=ptr1[ii*mnp+k]*ptr2[k*cnp+jj];
             ptr2[ii*cnp+jj]=sum;
           }
@@ -828,8 +901,8 @@ void *jac_adata;
 
     /* compute U_j = \sum_i A_ij^T A_ij */ // \Sigma here!
     /* U_j is symmetric, therefore its computation can be sped up by
-     * computing only the upper part and then reusing it for the lower one.
-     * Recall that A_ij is mnp x cnp
+     * computing only the upper part and then reusing it for the lower
+     * one.  Recall that A_ij is mnp x cnp
      */
     /* Also compute ea_j = \sum_i A_ij^T e_ij */ // \Sigma here!
     /* Recall that e_ij is mnp x 1
@@ -870,8 +943,8 @@ void *jac_adata;
 
     /* compute V_i = \sum_j B_ij^T B_ij */ // \Sigma here!
     /* V_i is symmetric, therefore its computation can be sped up by
-     * computing only the upper part and then reusing it for the lower one.
-     * Recall that B_ij is mnp x pnp
+     * computing only the upper part and then reusing it for the lower
+     * one.  Recall that B_ij is mnp x pnp
      */
     /* Also compute eb_i = \sum_j B_ij^T e_ij */ // \Sigma here!
     /* Recall that e_ij is mnp x 1
@@ -887,7 +960,8 @@ void *jac_adata;
         /* set ptr3 to point to B_ij, actual column number in rcsubs[j] */
         ptr3=jac + idxij.val[rcidxs[j]]*ABsz + Asz;
       
-        /* compute the UPPER TRIANGULAR PART of B_ij^T B_ij and add it to V_i */
+        /* compute the UPPER TRIANGULAR PART of B_ij^T B_ij and add it
+           to V_i */
         for(ii=0; ii<pnp; ++ii){
           for(jj=ii; jj<pnp; ++jj){
             for(k=0, sum=0.0; k<mnp; ++k)
@@ -923,8 +997,8 @@ void *jac_adata;
         /* set ptr2 & ptr3 to point to A_ij & B_ij resp. */
         ptr2=jac  + idxij.val[rcidxs[j]]*ABsz;
         ptr3=ptr2 + Asz;
-        /* compute A_ij^T B_ij and store it in W_ij
-         * Recall that storage for A_ij, B_ij does not overlap with that for W_ij,
+        /* compute A_ij^T B_ij and store it in W_ij Recall that
+         * storage for A_ij, B_ij does not overlap with that for W_ij,
          * see the comments related to the initialization of jac above
          */
         /* assert(ptr2-ptr1>=Wsz); */
@@ -999,11 +1073,13 @@ if(!(itno%100)){
         for(j=0; j<pnp; ++j)
           ptr1[j*pnp+j]+=mu;
 
-		    /* compute V*_i^-1.
-         * Recall that only the upper triangle of the symmetric pnp x pnp matrix V*_i
-         * is stored in ptr1; its (also symmetric) inverse is saved in the lower triangle of ptr1
+        /* compute V*_i^-1.  Recall that only the upper triangle of
+         * the symmetric pnp x pnp matrix V*_i is stored in ptr1; its
+         * (also symmetric) inverse is saved in the lower triangle of
+         * ptr1
          */
-        /* inverting V*_i with LDLT seems to result in faster overall execution compared to when using LU or Cholesky */
+        /* inverting V*_i with LDLT seems to result in faster overall
+           execution compared to when using LU or Cholesky */
         //j=sba_symat_invert_LU(ptr1, pnp); matinv=sba_symat_invert_LU;
         //j=sba_symat_invert_Chol(ptr1, pnp); matinv=sba_symat_invert_Chol;
         j=sba_symat_invert_BK(ptr1, pnp); matinv=sba_symat_invert_BK;
@@ -1025,7 +1101,8 @@ if(!(itno%100)){
       for(j=mcon; j<m; ++j){
         int mmconxUsz=mmcon*Usz;
 
-		    nnz=sba_crsm_col_elmidxs(&idxij, j, rcidxs, rcsubs); /* find nonzero Y_ij, i=0...n-1 */
+        nnz=sba_crsm_col_elmidxs(&idxij, j, rcidxs, rcsubs);
+        /* find nonzero Y_ij, i=0...n-1 */
 
         /* get rid of all Y_ij with i<ncon that are treated as zeros.
          * In this way, all rcsubs[i] below are guaranteed to be >= ncon
@@ -1049,7 +1126,8 @@ if(!(itno%100)){
          * Recall that W_ij is cnp x pnp and (V*_i) is pnp x pnp
          */
         for(i=0; i<nnz; ++i){
-          /* set ptr3 to point to (V*_i)^-1, actual row number in rcsubs[i] */
+          /* set ptr3 to point to (V*_i)^-1, actual row number in
+             rcsubs[i] */
           ptr3=V + rcsubs[i]*Vsz;
 
           /* set ptr1 to point to Y_ij, actual row number in rcsubs[i] */
