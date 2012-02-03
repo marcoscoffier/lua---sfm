@@ -1634,22 +1634,24 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
 
   /* call sparse LM routine */
   opts[0]=SBA_INIT_MU; opts[1]=SBA_STOP_THRESH; opts[2]=SBA_STOP_THRESH;
-  opts[3]=SBA_STOP_THRESH;
-  //opts[3]=0.05*numprojs; // uncomment to force termination if the average reprojection error drops below 0.05
-  opts[4]=0.0;
-  //opts[4]=1E-05; // uncomment to force termination if the relative reduction in the RMS reprojection error drops below 1E-05
+  //opts[3]=SBA_STOP_THRESH;
+  opts[3]=0.05*numprojs; // uncomment to force termination if the average reprojection error drops below 0.05
+  //opts[4]=0.0;
+  opts[4]=1E-05; // uncomment to force termination if the relative reduction in the RMS reprojection error drops below 1E-05
 
   start_time=clock();
   switch(howto){
     case BA_MOTSTRUCT: /* BA for motion & structure */
       nvars=nframes*cnp+numpts3D*pnp;
       if(expert)
-        n=sba_motstr_levmar_x(numpts3D, 0, nframes, nconstframes, vmask, motstruct, cnp, pnp, imgpts, covimgpts, mnp,
-                            fixedcal? img_projsRTS_x : (havedist? img_projsKDRTS_x : img_projsKRTS_x),
-                            analyticjac? (fixedcal? img_projsRTS_jac_x : (havedist? img_projsKDRTS_jac_x : img_projsKRTS_jac_x)) : NULL,
-                            (void *)(&globs), MAXITER2, verbose, opts, info);
+        n=sba_motstr_levmar_x(numpts3D, 0, nframes, nconstframes, vmask,
+                              motstruct, cnp, pnp, imgpts, covimgpts, mnp,
+                              fixedcal? img_projsRTS_x : (havedist? img_projsKDRTS_x : img_projsKRTS_x),
+                              analyticjac? (fixedcal? img_projsRTS_jac_x : (havedist? img_projsKDRTS_jac_x : img_projsKRTS_jac_x)) : NULL,
+                              (void *)(&globs), MAXITER2, verbose, opts, info);
       else
-        n=sba_motstr_levmar(numpts3D, 0, nframes, nconstframes, vmask, motstruct, cnp, pnp, imgpts, covimgpts, mnp,
+        n=sba_motstr_levmar(numpts3D, 0, nframes, nconstframes, vmask,
+                            motstruct, cnp, pnp, imgpts, covimgpts, mnp,
                             fixedcal? img_projRTS : (havedist? img_projKDRTS : img_projKRTS),
                             analyticjac? (fixedcal? img_projRTS_jac : (havedist? img_projKDRTS_jac : img_projKRTS_jac)) : NULL,
                             (void *)(&globs), MAXITER2, verbose, opts, info);
@@ -1659,31 +1661,37 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
       globs.ptparams=motstruct+nframes*cnp;
       nvars=nframes*cnp;
       if(expert)
-        n=sba_mot_levmar_x(numpts3D, nframes, nconstframes, vmask, motstruct, cnp, imgpts, covimgpts, mnp,
-                          fixedcal? img_projsRT_x : (havedist? img_projsKDRT_x : img_projsKRT_x),
-                          analyticjac? (fixedcal? img_projsRT_jac_x : (havedist? img_projsKDRT_jac_x : img_projsKRT_jac_x)) : NULL,
-                          (void *)(&globs), MAXITER, verbose, opts, info);
+        n=sba_mot_levmar_x(numpts3D, nframes, nconstframes, vmask,
+                           motstruct, cnp, imgpts, covimgpts, mnp,
+                           fixedcal? img_projsRT_x : (havedist? img_projsKDRT_x : img_projsKRT_x),
+                           analyticjac? (fixedcal? img_projsRT_jac_x : (havedist? img_projsKDRT_jac_x : img_projsKRT_jac_x)) : NULL,
+                           (void *)(&globs), MAXITER, verbose, opts, info);
       else
-        n=sba_mot_levmar(numpts3D, nframes, nconstframes, vmask, motstruct, cnp, imgpts, covimgpts, mnp,
-                          fixedcal? img_projRT : (havedist? img_projKDRT : img_projKRT),
-                          analyticjac? (fixedcal? img_projRT_jac : (havedist? img_projKDRT_jac : img_projKRT_jac)) : NULL,
-                          (void *)(&globs), MAXITER, verbose, opts, info);
+        n=sba_mot_levmar(numpts3D, nframes, nconstframes, vmask,
+                         motstruct, cnp, imgpts, covimgpts, mnp,
+                         fixedcal? img_projRT : (havedist? img_projKDRT : img_projKRT),
+                         analyticjac? (fixedcal? img_projRT_jac : (havedist? img_projKDRT_jac : img_projKRT_jac)) : NULL,
+                         (void *)(&globs), MAXITER, verbose, opts, info);
     break;
 
     case BA_STRUCT: /* BA for structure only */
       globs.camparams=motstruct;
       nvars=numpts3D*pnp;
       if(expert)
-        n=sba_str_levmar_x(numpts3D, 0, nframes, vmask, motstruct+nframes*cnp, pnp, imgpts, covimgpts, mnp,
-                          fixedcal? img_projsS_x : (havedist? img_projsKDS_x : img_projsKS_x),
-                          analyticjac? (fixedcal? img_projsS_jac_x : (havedist? img_projsKDS_jac_x : img_projsKS_jac_x)) : NULL,
-                          (void *)(&globs), MAXITER, verbose, opts, info);
+        n=sba_str_levmar_x(numpts3D, 0, nframes, vmask,
+                           motstruct+nframes*cnp, pnp, imgpts,
+                           covimgpts, mnp,
+                           fixedcal? img_projsS_x : (havedist? img_projsKDS_x : img_projsKS_x),
+                           analyticjac? (fixedcal? img_projsS_jac_x : (havedist? img_projsKDS_jac_x : img_projsKS_jac_x)) : NULL,
+                           (void *)(&globs), MAXITER, verbose, opts, info);
       else
-        n=sba_str_levmar(numpts3D, 0, nframes, vmask, motstruct+nframes*cnp, pnp, imgpts, covimgpts, mnp,
-                          fixedcal? img_projS : (havedist? img_projKDS : img_projKS),
-                          analyticjac? (fixedcal? img_projS_jac : (havedist? img_projKDS_jac : img_projKS_jac)) : NULL,
-                          (void *)(&globs), MAXITER, verbose, opts, info);
-    break;
+        n=sba_str_levmar(numpts3D, 0, nframes, vmask,
+                         motstruct+nframes*cnp, pnp, imgpts,
+                         covimgpts, mnp,
+                         fixedcal? img_projS : (havedist? img_projKDS : img_projKS),
+                         analyticjac? (fixedcal? img_projS_jac : (havedist? img_projKDS_jac : img_projKS_jac)) : NULL,
+                         (void *)(&globs), MAXITER, verbose, opts, info);
+      break;
 
     case BA_MOT_MOTSTRUCT: /* BA for motion only; if error too large, then BA for motion & structure */
       if((motstruct_copy=(double *)malloc((nframes*cnp + numpts3D*pnp)*sizeof(double)))==NULL){
