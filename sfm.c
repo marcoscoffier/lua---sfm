@@ -1731,8 +1731,10 @@ void sba_driver_c(double * motstruct,int nframes, int numpts3D,
   }
   end_time=clock();
 
-  if(n==SBA_ERROR) goto cleanup;
-  
+  if(n==SBA_ERROR){
+    printf("SBA ERROR\n");
+    goto cleanup;
+  }
   if(howto!=BA_STRUCT){
     /* combine the local rotation estimates with the initial ones */
     for(i=0; i<nframes; ++i){

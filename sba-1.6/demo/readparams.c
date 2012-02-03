@@ -276,22 +276,28 @@ int nfirst, lineno, npts, nframes, ch, n;
 }
 
 
-/* reads a points parameter file.
- * "params", "projs" & "vmask" are assumed preallocated, pointing to
- * memory blocks large enough to hold the parameters of 3D points, 
- * their projections in all images and the point visibility mask, respectively.
- * Also, if "covprojs" is non-NULL, it is assumed preallocated and pointing to
- * a memory block suitable to hold the covariances of image projections.
- * Each 3D point is assumed to be defined by pnp parameters and each of its projections
- * by mnp parameters. Optionally, the mnp*mnp covariance matrix in row-major order
- * follows each projection. All parameters are stored in a single line.
+/* reads a points parameter file.  "params", "projs" & "vmask" are
+ * assumed preallocated, pointing to memory blocks large enough to
+ * hold the parameters of 3D points, their projections in all images
+ * and the point visibility mask, respectively.  Also, if "covprojs"
+ * is non-NULL, it is assumed preallocated and pointing to a memory
+ * block suitable to hold the covariances of image projections.  Each
+ * 3D point is assumed to be defined by pnp parameters and each of its
+ * projections by mnp parameters. Optionally, the mnp*mnp covariance
+ * matrix in row-major order follows each projection. All parameters
+ * are stored in a single line.
  *
- * File format is X_{0}...X_{pnp-1}  nframes  frame0 x0 y0 [covx0^2 covx0y0 covx0y0 covy0^2] frame1 x1 y1 [covx1^2 covx1y1 covx1y1 covy1^2] ...
- * with the parameters in angle brackets being optional. To save space, only the upper
- * triangular part of the covariance can be specified, i.e. [covx0^2 covx0y0 covy0^2], etc
+ * File format is X_{0}...X_{pnp-1} nframes frame0 x0 y0 [covx0^2
+ * covx0y0 covx0y0 covy0^2] frame1 x1 y1 [covx1^2 covx1y1 covx1y1
+ * covy1^2] ...  with the parameters in angle brackets being
+ * optional. To save space, only the upper triangular part of the
+ * covariance can be specified, i.e. [covx0^2 covx0y0 covy0^2], etc
  */
-static void readPointParamsAndProjections(FILE *fp, double *params, int pnp, double *projs, double *covprojs,
-                                          int havecov, int mnp, char *vmask, int ncams)
+static void readPointParamsAndProjections(FILE *fp, double *params,
+                                          int pnp,
+                                          double *projs, double *covprojs,
+                                          int havecov, int mnp,
+                                          char *vmask, int ncams)
 {
 int nframes, ch, lineno, ptno, frameno, n;
 int ntord, covsz=mnp*mnp, tricovsz=mnp*(mnp+1)/2, nshift;
@@ -356,10 +362,12 @@ register int i, ii, jj, k;
           exit(1);
         }
         if(havecov==TRICOV){
-          /* complete the full matrix from the triangular part that was read.
-           * First, prepare upper part: element (ii, mnp-1) is at position mnp-1 + ii*(2*mnp-ii-1)/2.
-           * Row ii has mnp-ii elements that must be shifted by ii*(ii+1)/2
-           * positions to the right to make space for the lower triangular part
+          /* complete the full matrix from the triangular part that
+           * was read.  First, prepare upper part: element (ii, mnp-1)
+           * is at position mnp-1 + ii*(2*mnp-ii-1)/2.  Row ii has
+           * mnp-ii elements that must be shifted by ii*(ii+1)/2
+           * positions to the right to make space for the lower
+           * triangular part
            */
           for(ii=mnp; --ii; ){
             k=mnp-1 + ((ii*((mnp<<1)-ii-1))>>1); //mnp-1 + ii*(2*mnp-ii-1)/2
@@ -388,15 +396,23 @@ register int i, ii, jj, k;
 }
 
 
-/* combines the above routines to read the initial estimates of the motion + structure parameters from text files.
- * Also, it loads the projections of 3D points across images and optionally their covariances.
- * The routine dynamically allocates the required amount of memory (last 4 arguments).
- * If no covariances are supplied, *covimgpts is set to NULL
+/* combines the above routines to read the initial estimates of the
+ * motion + structure parameters from text files.  Also, it loads the
+ * projections of 3D points across images and optionally their
+ * covariances.  The routine dynamically allocates the required amount
+ * of memory (last 4 arguments).  If no covariances are supplied,
+ * *covimgpts is set to NULL
  */
-void readInitialSBAEstimate(char *camsfname, char *ptsfname, int cnp, int pnp, int mnp,
-                            void (*infilter)(double *pin, int nin, double *pout, int nout), int filecnp,
+void readInitialSBAEstimate(char *camsfname, char *ptsfname,
+                            int cnp, int pnp, int mnp,
+                            void (*infilter)
+                            (double *pin, int nin,
+                             double *pout, int nout),
+                            int filecnp,
                             int *ncams, int *n3Dpts, int *n2Dprojs,
-                            double **motstruct, double **initrot, double **imgpts, double **covimgpts, char **vmask)
+                            double **motstruct, double **initrot,
+                            double **imgpts, double **covimgpts,
+                            char **vmask)
 {
 FILE *fpc, *fpp;
 int havecov;
@@ -503,12 +519,14 @@ int n;
   return n;
 }
 
-/* routines for printing the motion and structure parameters, plus the projections
- * of 3D points across images. Mainly for debugging purposes.
+/* routines for printing the motion and structure parameters, plus the
+ * projections of 3D points across images. Mainly for debugging
+ * purposes.
  *
- * outfilter points to a function that converts a motion parameters vector from 
- * the interrnal representation used by eucsbademo to a format suitable for display.
- * For instance, it can expand a quaternion to 4 elements from its vector part.
+ * outfilter points to a function that converts a motion parameters
+ * vector from the interrnal representation used by eucsbademo to a
+ * format suitable for display.  For instance, it can expand a
+ * quaternion to 4 elements from its vector part.
  */
 
 /* motion parameters only */
@@ -555,8 +573,8 @@ register int i;
   }
 }
 
-/* prints the estimates of the motion + structure parameters. It also prints the projections
- * of 3D points across images.
+/* prints the estimates of the motion + structure parameters. It also
+ * prints the projections of 3D points across images.
  */
 void printSBAData(FILE *fp, double *motstruct, int cnp, int pnp, int mnp, 
                   void (*outfilter)(double *pin, int nin, double *pout, int nout), int outcnp,
@@ -608,8 +626,9 @@ int nframes;
 }
 
 
-/* save *Euclidean* sba structure to a PLY file for interactive viewing with scanalyze
- * see ftp://graphics.stanford.edu/pub/zippack/ply-1.1.tar.Z and
+/* save *Euclidean* sba structure to a PLY file for interactive
+ * viewing with scanalyze see
+ * ftp://graphics.stanford.edu/pub/zippack/ply-1.1.tar.Z and
  * http://www-graphics.stanford.edu/software/scanalyze/
  */
 void saveSBAStructureDataAsPLY(char *fname, double *motstruct, int ncams, int n3Dpts, int cnp, int pnp, int withrgb)
