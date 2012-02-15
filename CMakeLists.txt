@@ -1,14 +1,6 @@
-cmake_minimum_required(VERSION 2.8)
-
-set (CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
-
-# infer path for Torch7
-string (REGEX REPLACE "(.*)lib/luarocks/rocks.*" "\\1" TORCH_PREFIX "${CMAKE_INSTALL_PREFIX}" )
-message (STATUS "Found Torch7, installed in: " ${TORCH_PREFIX})
-
-find_package (Torch REQUIRED)
-
-set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6 FATAL_ERROR)
+CMAKE_POLICY(VERSION 2.6)
+FIND_PACKAGE(Torch REQUIRED)
 
 # use the sparse bundle adjustment from loukatis
 set(SBA_SOURCE_DIR ${PROJECT_SOURCE_DIR}/sba-1.6)
@@ -18,17 +10,13 @@ add_subdirectory(${SBA_SOURCE_DIR})
 set(SBA_EXAMPLE_DIR ${SBA_SOURCE_DIR}/demo)
 add_subdirectory(${SBA_EXAMPLE_DIR})
 
-include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR} 
-  ${SBA_SOURCE_DIR} ${SBA_EXAMPLE_DIR})
+include_directories (${SBA_SOURCE_DIR} ${SBA_EXAMPLE_DIR})
+
+set(src sfm.c)
+FILE(GLOB files "${CMAKE_CURRENT_SOURCE_DIR}/examples/*txt")
+set(luasrc init.lua ${files})
 
 # call our library sfm b/c sba target is used in sba-1.6
-add_library (sfm SHARED sfm.c)
-
-link_directories (${TORCH_LIBRARY_DIR})
-set (CMAKE_C_FLAGS "-fPIC")
-target_link_libraries (sfm ${TORCH_LIBRARIES} sbaexample sba)
-
-FILE(GLOB files "${CMAKE_CURRENT_SOURCE_DIR}/examples/*txt")
-install_files(/lua/sfm FILES init.lua ${files})
-install_targets(/lib sfm)
+add_torch_package (sfm "${src}" "${luasrc}" "SFM toolkit")
+target_link_libraries (sfm luaT TH sbaexample sba)
 

@@ -146,6 +146,7 @@ function sfm.sba_points (...)
                                initrot,imgprojs, calibration)
    return motion,structure,calibration
 end
+
 -- opens a points file in the format of the sba demo files
 function sfm.pointsfile_get_npts(pointsfname,points_df)
    local must_close = false
@@ -209,6 +210,7 @@ function sfm.pointsfile_get_points(points_df,
 end
 
 function sfm.load_points_file(pointsfname,nframes,cnp,pnp,mnp)
+   print("opening "..pointsfname)
    local points_df = torch.DiskFile(pointsfname)
    local n3Dpts, n2Dprojs = sfm.pointsfile_get_npts(pointsfname,points_df)
    local motstruct,structure,imgprojs,vmask = 
@@ -236,7 +238,6 @@ function sfm.load_calibration_file(calibfname)
    local calibration=torch.Tensor(3,3)
    local calib_df = torch.DiskFile(calibfname)
    print("opening "..calibfname)
-
    calibration:copy(torch.Tensor(calib_df:readDouble(9)))
    calib_df:close()
    return calibration
@@ -257,8 +258,8 @@ function sfm.sba_test_projection ()
    local calibration = sfm.load_calibration_file(calibfname)
    local camera,nframes = sfm.load_camera_file(camerafname)
    local n3Dpts,n2Dprojs,motstruct,structure,imgprojs,vmask = 
-      sfm.load_points_file(pointsfname,pointsfile,nframes,cnp,pnp,mnp)
-
+      sfm.load_points_file(pointsfname,nframes,cnp,pnp,mnp)
+   return calibration,structure,imgprojs,vmask
 end
 
 
@@ -284,10 +285,9 @@ function sfm.sba_testme ()
    motion:resize(nframes,cnp)
    local fullquatz = 4
    local initrot   = torch.Tensor(nframes,fullquatz):fill(0)
+
    -- go from quaternions in camera (7 params) to 3 rotation and 3
    -- position (6 params) in motion (quat2vec)
-
-
    for i = 1,nframes do
       local mag = math.sqrt(camera[i][1] * camera[i][1] +
                             camera[i][2] * camera[i][2] +
